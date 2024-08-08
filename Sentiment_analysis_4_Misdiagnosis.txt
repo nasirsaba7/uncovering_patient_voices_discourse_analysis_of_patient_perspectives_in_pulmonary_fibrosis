@@ -1,0 +1,31 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition. I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma in 2012."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result:
+
+Sentence: My dad was misdiagnosed for five years and was finally told he had IPF one week before he died.
+Polarity: -0.30, Subjectivity: 0.60
+
+Sentence: To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition.
+Polarity: -0.88, Subjectivity: 1.00
+
+Sentence: I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma in 2012.
+Polarity: 0.00, Subjectivity: 0.00

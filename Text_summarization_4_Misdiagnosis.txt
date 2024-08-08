@@ -1,0 +1,183 @@
+# Install the transformers package from Hugging Face:
+!pip install transformers
+!pip install torch
+!pip install tensorflow
+
+
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+
+# Load the model and tokenizer
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-large-cnn')
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-large-cnn')
+
+
+
+def summarize(text, maxSummarylength=500):
+    # Encode the text and summarize
+    inputs = tokenizer.encode("summarize: " +
+                              text,
+                              return_tensors="pt",
+                              max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs, max_length=maxSummarylength,
+                                 min_length=int(maxSummarylength/5),
+                                 length_penalty=10.0,
+                                 num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+
+
+def split_text_into_pieces(text,
+                           max_tokens=900,
+                           overlapPercent=10):
+    # Tokenize the text
+    tokens = tokenizer.tokenize(text)
+
+    # Calculate the overlap in tokens
+    overlap_tokens = int(max_tokens * overlapPercent / 100)
+
+    # Split the tokens into chunks of size
+    # max_tokens with overlap
+    pieces = [tokens[i:i + max_tokens]
+              for i in range(0, len(tokens),
+                             max_tokens - overlap_tokens)]
+
+    # Convert the token pieces back into text
+    text_pieces = [tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(piece),
+        skip_special_tokens=True) for piece in pieces]
+
+    return text_pieces
+
+
+def recursive_summarize(text, max_length=200, recursionLevel=0):
+    recursionLevel=recursionLevel+1
+    print("######### Recursion level: ",
+          recursionLevel,"\n\n######### ")
+    tokens = tokenizer.tokenize(text)
+    expectedCountOfChunks = len(tokens)/max_length
+    max_length=int(len(tokens)/expectedCountOfChunks)+2
+
+    # Break the text into pieces of max_length
+    pieces = split_text_into_pieces(text, max_tokens=max_length)
+
+    print("Number of pieces: ", len(pieces))
+    # Summarize each piece
+    summaries=[]
+    k=0
+    for k in range(0, len(pieces)):
+        piece=pieces[k]
+        print("****************************************************")
+        print("Piece:",(k+1)," out of ", len(pieces), "pieces")
+        print(piece, "\n")
+        summary =summarize(piece, maxSummarylength=max_length/3*2)
+        print("SUMNMARY: ", summary)
+        summaries.append(summary)
+        print("****************************************************")
+
+    concatenated_summary = ' '.join(summaries)
+
+    tokens = tokenizer.tokenize(concatenated_summary)
+
+    if len(tokens) > max_length:
+        # If the concatenated_summary is too long, repeat the process
+        print("############# GOING RECURSIVE ##############")
+        return recursive_summarize(concatenated_summary,
+                                   max_length=max_length,
+                                   recursionLevel=recursionLevel)
+    else:
+      # Concatenate the summaries and summarize again
+        final_summary=concatenated_summary
+        if len(pieces)>1:
+            final_summary = summarize(concatenated_summary,
+                                  maxSummarylength=max_length)
+        return final_summary
+
+
+
+# Example usage - Misdiagnosis
+text = '''My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. I changed respirologists part way through (the process of being treated) because I wasn’t getting the information I wanted. Doctor (diagnoses) with fibermyalgia [sic] and prescribed prednisone 40mg… My arthritis results came back negative… Upon visiting a physician he noticed that my oxygen is very very low… had CT scan with contrast of my entire chest where they discovered fibrosis. I was first diagnosed with bronchiectasis in 2002. It took till 2011 before I discovered that I had pulmonary fibrosis. I got a really bad respiratory flu. I didn’t recover in 10 or 12 days… and at first they thought it was COPD. My health had been deteriorating for quite a while running up to my IPF diagnosis in 2015. In early 2014, I had been experiencing severe chest pains. An x-ray revealed honeycombing on my lungs and my doctor could hear crackling. Following a lung biopsy at hospital, my partner and I were initially told that I did not have IPF – we left the hospital feeling relieved. Unfortunately, the relief was short-lived. At my next routine appointment, another doctor informed me that I did have IPF. This came as a massive shock and I left the hospital feeling unhappy and anxious about the future. When I got home, I told Allison, who was distraught; having previously read that the average life expectancy from diagnosis was 3-5 years. Very shocked. Really upset at the time. Coming to terms with it slowly. They gave me a booklet and I wish I didn’t read it. To give it to someone as soon as they diagnosed it, I think it was not a good idea. While the diagnosis itself might be clearly explained at the time, patients report a subsequent lack of support and information: After diagnosis, I have been left on my own to cope, with no help from anyone. Things were very confusing at this time for me, and I remember wondering why I was being admitted, because I didn’t feel particularly worse than I had in the months prior. I felt desperate and alone. After such an awful diagnosis, my next appointment was in 6 months and nothing in between. To be diagnosed with IPF is absolutely devastating ... You are told you have three to five years to live ... It’s a very, very scary proposition. I guess the reason why I felt so surprised was that there was no mention of pulmonary fibrosis in the years prior, when I had multiple episodes of flu, bronchitis, pneumonia. It was a bit of a shock to the system ... we thought it was just a chest infection ... he had a little cough but nothing too much. Initially it was a huge shock to discover that he had IPF, which I had never heard of. Given that I am a life-long non-smoker and never knowingly worked in a hazardous environment, I couldn’t fathom my diagnosis. Why me and IPF? I feel picked on, I feel I haven’t smoked for all these years, I don’t drink, I’m not overly fat, why is this happening to me? My general practitioner had no idea what was wrong with me. I used to feel upset when I left his office as I knew he did not believe what I was telling him. I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma at the end of October in 2012… My first reaction was disbelief especially when I was told that one of the ‘treatments’ would be chemotherapy. Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011. My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis. I was shocked, but I was determined to see the bright side of things. We had a diagnosis and now could start on a path of monitoring this to hopefully prevent any further complications. At the time of diagnosis I had no symptoms, I was athletic and completely healthy. I had no idea the impact it would come to have on my life. I was told I had Interstitial Lung Disease and Pneumonitis which resulted in scarring and a partially collapsed left lung in early 2019 when I had been on MTX. Is that pulmonary fibrosis? I don’t know. I’m about to be referred to a Respiratory consultant (again) as I have a blood clot in each lung and so will ask for an explanation of all the different terms. … but had always been diagnosed as something else, such as pneumonia. This unfortunately led to countless, useless prescriptions of antibiotics; to post-nasal drip; to possibly tuberculosis (simple tests proved otherwise). Luckily, my new and astute physician decided that the problem was greater and a referral to a respirologist confirmed IPF. I was referred to a respirologist and put on a high dose steroid, and a bronchodilator inhaler. Several tests followed and finally in December 2010, based on a lung biopsy, I was diagnosed with IPF that had already reduced my lung function by 40%. Have [sic] been diagnosed this by my respiratory consultant due to decrease in my lung function tests. I was diagnosed with pulmonary fibrosis approx 5 years ago. My respiratory consultant believes it RA related and I’ve no reason to doubt him as I’m as sure as I can be that my lungs were damaged during a prolonged RA flare. Am going to a connective tissue consultant… as my rheumatologist consultant thinks this would help me better. My hospital has a scleroderma specialist, thankfully! I had been treated for pulmonary fibrosis there. Some other issues landed me with rheumatology, but they seem to have a few multidisciplinary specidiaagalists that see scleroderma patients, which is great.'''
+
+final_summary = recursive_summarize(text)
+print("\n%%%%%%%%%%%%%%%%%%%%%\n")
+print("Final summary:", final_summary)
+
+
+
+
+######### Recursion level:  1 
+
+######### 
+Number of pieces:  7
+****************************************************
+Piece: 1  out of  7 pieces
+My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. I changed respirologists part way through (the process of being treated) because I wasn’t getting the information I wanted. Doctor (diagnoses) with fibermyalgia [sic] and prescribed prednisone 40mg… My arthritis results came back negative… Upon visiting a physician he noticed that my oxygen is very very low… had CT scan with contrast of my entire chest where they discovered fibrosis. I was first diagnosed with bronchiectasis in 2002. It took till 2011 before I discovered that I had pulmonary fibrosis. I got a really bad respiratory flu. I didn’t recover in 10 or 12 days… and at first they thought it was COPD. My health had been deteriorating for quite a while running up to my IPF diagnosis in 2015. In early 2014, I had been experiencing severe chest pains. An x-ray revealed honeycombing 
+
+SUMNMARY:  My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. I changed respirologists part way through (the process of being treated) because I wasn’t getting the information I wanted.
+****************************************************
+****************************************************
+Piece: 2  out of  7 pieces
+ In early 2014, I had been experiencing severe chest pains. An x-ray revealed honeycombing on my lungs and my doctor could hear crackling. Following a lung biopsy at hospital, my partner and I were initially told that I did not have IPF – we left the hospital feeling relieved. Unfortunately, the relief was short-lived. At my next routine appointment, another doctor informed me that I did have IPF. This came as a massive shock and I left the hospital feeling unhappy and anxious about the future. When I got home, I told Allison, who was distraught; having previously read that the average life expectancy from diagnosis was 3-5 years. Very shocked. Really upset at the time. Coming to terms with it slowly. They gave me a booklet and I wish I didn’t read it. To give it to someone as soon as they diagnosed it, I think it was not a good idea. While the diagnosis itself might be clearly explained at the time, patients report 
+
+SUMNMARY:  An x-ray revealed honeycombing on my lungs and my doctor could hear crackling. At my next routine appointment, another doctor informed me that I did have IPF. This came as a massive shock and I left the hospital feeling unhappy and anxious about the future. They gave me a booklet and I wish I didn't read it.
+****************************************************
+****************************************************
+Piece: 3  out of  7 pieces
+ was not a good idea. While the diagnosis itself might be clearly explained at the time, patients report a subsequent lack of support and information: After diagnosis, I have been left on my own to cope, with no help from anyone. Things were very confusing at this time for me, and I remember wondering why I was being admitted, because I didn’t feel particularly worse than I had in the months prior. I felt desperate and alone. After such an awful diagnosis, my next appointment was in 6 months and nothing in between. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition. I guess the reason why I felt so surprised was that there was no mention of pulmonary fibrosis in the years prior, when I had multiple episodes of flu, bronchitis, pneumonia. It was a bit of a shock to the system... we thought it was just a chest infection... he had a 
+
+SUMNMARY:  After diagnosis, I have been left on my own to cope, with no help from anyone. I felt desperate and alone. After such an awful diagnosis, my next appointment was in 6 months and nothing in between. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition.
+****************************************************
+****************************************************
+Piece: 4  out of  7 pieces
+ bit of a shock to the system... we thought it was just a chest infection... he had a little cough but nothing too much. Initially it was a huge shock to discover that he had IPF, which I had never heard of. Given that I am a life-long non-smoker and never knowingly worked in a hazardous environment, I couldn’t fathom my diagnosis. Why me and IPF? I feel picked on, I feel I haven’t smoked for all these years, I don’t drink, I’m not overly fat, why is this happening to me? My general practitioner had no idea what was wrong with me. I used to feel upset when I left his office as I knew he did not believe what I was telling him. I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma at the end of October in 2012… My first reaction was disbelief especially when I was told that one of the ‘t 
+
+SUMNMARY:  "I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma at the end of October in 2012… My first reaction was disbelief especially when I was told that one of the ‘t’
+****************************************************
+****************************************************
+Piece: 5  out of  7 pieces
+ in 2012… My first reaction was disbelief especially when I was told that one of the ‘treatments’ would be chemotherapy. Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011. My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis. I was shocked, but I was determined to see the bright side of things. We had a diagnosis and now could start on a path of monitoring this to hopefully prevent any further complications. At the time of diagnosis I had no symptoms, I was athletic and completely healthy. I had no idea the impact it would come to have on my life. I was told I had Interstitial Lung Disease and Pneumonitis which resulted in scarring and a partially collapsed left lung in early 2019 when I had been on MTX. Is that pulmonary fibrosis? I don’t know. I’m about to be referred to a Respiratory consultant (again 
+
+SUMNMARY:  Rheumatoid arthritis caused pulmonary fibrosis, according to the NHS. The condition can cause scarring and a partially collapsed left lung in early 2019.
+****************************************************
+****************************************************
+Piece: 6  out of  7 pieces
+ t know. I’m about to be referred to a Respiratory consultant (again) as I have a blood clot in each lung and so will ask for an explanation of all the different terms. … but had always been diagnosed as something else, such as pneumonia. This unfortunately led to countless, useless prescriptions of antibiotics; to post-nasal drip; to possibly tuberculosis (simple tests proved otherwise). Luckily, my new and astute physician decided that the problem was greater and a referral to a respirologist confirmed IPF. I was referred to a respirologist and put on a high dose steroid, and a bronchodilator inhaler. Several tests followed and finally in December 2010, based on a lung biopsy, I was diagnosed with IPF that had already reduced my lung function by 40%. Have [sic] been diagnosed this by my respiratory consultant due to decrease in my lung function tests. I was diagnosed with pulmonary fibrosis approx 5 years ago. 
+
+SUMNMARY:  I was diagnosed with pulmonary fibrosis approx 5 years ago. I was referred to a respirologist and put on a high dose steroid, and a bronchodilator inhaler. Several tests followed and finally in December 2010, based on a lung biopsy, I was diagnosed as having IPF.
+****************************************************
+****************************************************
+Piece: 7  out of  7 pieces
+ to decrease in my lung function tests. I was diagnosed with pulmonary fibrosis approx 5 years ago. My respiratory consultant believes it RA related and I’ve no reason to doubt him as I’m as sure as I can be that my lungs were damaged during a prolonged RA flare. Am going to a connective tissue consultant… as my rheumatologist consultant thinks this would help me better. My hospital has a scleroderma specialist, thankfully! I had been treated for pulmonary fibrosis there. Some other issues landed me with rheumatology, but they seem to have a few multidisciplinary specidiaagalists that see scleroderma patients, which is great. 
+
+SUMNMARY:  I was diagnosed with pulmonary fibrosis approx 5 years ago. My respiratory consultant believes it RA related and I’ve no reason to doubt him. Am going to a connective tissue consultant… as my rheumatologist consultant thinks this would help me better.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  2 
+
+######### 
+Number of pieces:  3
+****************************************************
+Piece: 1  out of  3 pieces
+My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. I changed respirologists part way through (the process of being treated) because I wasn’t getting the information I wanted. An x-ray revealed honeycombing on my lungs and my doctor could hear crackling. At my next routine appointment, another doctor informed me that I did have IPF. This came as a massive shock and I left the hospital feeling unhappy and anxious about the future. They gave me a booklet and I wish I didn't read it. After diagnosis, I have been left on my own to cope, with no help from anyone. I felt desperate and alone. After such an awful diagnosis, my next appointment was in 6 months and nothing in between. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition. "I was diagnosed with Interstitial Lung 
+
+SUMNMARY:  My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. I changed respirologists part way through (the process of being treated) because I wasn’t getting the information I wanted. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition.
+****************************************************
+****************************************************
+Piece: 2  out of  3 pieces
+... It’s a very, very scary proposition. "I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma at the end of October in 2012… My first reaction was disbelief especially when I was told that one of the ‘t’ Rheumatoid arthritis caused pulmonary fibrosis, according to the NHS. The condition can cause scarring and a partially collapsed left lung in early 2019. I was diagnosed with pulmonary fibrosis approx 5 years ago. I was referred to a respirologist and put on a high dose steroid, and a bronchodilator inhaler. Several tests followed and finally in December 2010, based on a lung biopsy, I was diagnosed as having IPF. I was diagnosed with pulmonary fibrosis approx 5 years ago. My respiratory consultant believes it RA related and I’ve no reason to doubt him. Am going to a connective tissue consultant… as my rheumatologist consultant thinks this would help me better. 
+
+SUMNMARY:  I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma in 2012. The condition can cause scarring and a partially collapsed left lung in early 2019.
+****************************************************
+****************************************************
+Piece: 3  out of  3 pieces
+ a connective tissue consultant… as my rheumatologist consultant thinks this would help me better. 
+
+SUMNMARY:  summarize:  a connective tissue consultant… as my rheumatologist consultant thinks this would help me better.
+****************************************************
+
+%%%%%%%%%%%%%%%%%%%%%
+
+Final summary: My dad was misdiagnosed for five years and was finally told he had IPF one week before he died. To be diagnosed with IPF is absolutely devastating... You are told you have three to five years to live... It’s a very, very scary proposition. I was diagnosed with Interstitial Lung Disease (ILD) caused by scleroderma in 2012.

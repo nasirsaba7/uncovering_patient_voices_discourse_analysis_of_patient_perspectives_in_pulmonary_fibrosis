@@ -1,0 +1,380 @@
+# Install the transformers package from Hugging Face:
+!pip install transformers
+!pip install torch
+!pip install tensorflow
+
+
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+
+# Load the model and tokenizer
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-large-cnn')
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-large-cnn')
+
+
+
+def summarize(text, maxSummarylength=500):
+    # Encode the text and summarize
+    inputs = tokenizer.encode("summarize: " +
+                              text,
+                              return_tensors="pt",
+                              max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs, max_length=maxSummarylength,
+                                 min_length=int(maxSummarylength/5),
+                                 length_penalty=10.0,
+                                 num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+
+
+def split_text_into_pieces(text,
+                           max_tokens=900,
+                           overlapPercent=10):
+    # Tokenize the text
+    tokens = tokenizer.tokenize(text)
+
+    # Calculate the overlap in tokens
+    overlap_tokens = int(max_tokens * overlapPercent / 100)
+
+    # Split the tokens into chunks of size
+    # max_tokens with overlap
+    pieces = [tokens[i:i + max_tokens]
+              for i in range(0, len(tokens),
+                             max_tokens - overlap_tokens)]
+
+    # Convert the token pieces back into text
+    text_pieces = [tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(piece),
+        skip_special_tokens=True) for piece in pieces]
+
+    return text_pieces
+
+
+def recursive_summarize(text, max_length=200, recursionLevel=0):
+    recursionLevel=recursionLevel+1
+    print("######### Recursion level: ",
+          recursionLevel,"\n\n######### ")
+    tokens = tokenizer.tokenize(text)
+    expectedCountOfChunks = len(tokens)/max_length
+    max_length=int(len(tokens)/expectedCountOfChunks)+2
+
+    # Break the text into pieces of max_length
+    pieces = split_text_into_pieces(text, max_tokens=max_length)
+
+    print("Number of pieces: ", len(pieces))
+    # Summarize each piece
+    summaries=[]
+    k=0
+    for k in range(0, len(pieces)):
+        piece=pieces[k]
+        print("****************************************************")
+        print("Piece:",(k+1)," out of ", len(pieces), "pieces")
+        print(piece, "\n")
+        summary =summarize(piece, maxSummarylength=max_length/3*2)
+        print("SUMNMARY: ", summary)
+        summaries.append(summary)
+        print("****************************************************")
+
+    concatenated_summary = ' '.join(summaries)
+
+    tokens = tokenizer.tokenize(concatenated_summary)
+
+    if len(tokens) > max_length:
+        # If the concatenated_summary is too long, repeat the process
+        print("############# GOING RECURSIVE ##############")
+        return recursive_summarize(concatenated_summary,
+                                   max_length=max_length,
+                                   recursionLevel=recursionLevel)
+    else:
+      # Concatenate the summaries and summarize again
+        final_summary=concatenated_summary
+        if len(pieces)>1:
+            final_summary = summarize(concatenated_summary,
+                                  maxSummarylength=max_length)
+        return final_summary
+
+
+
+# Example usage - Specific impacts of PF on activities of daily living including navigating healthcare environment and access
+text = '''As IPF was destroying my dad’s life, he struggled with the disappointment that no cure existed, and he looked for a way to support research that could lead to a cure.
+‘I just wish it would stop. The feeling that it is never going to improve is sometimes overwhelming.
+I used to play a lot of golf, swimming, cricket, you name it. I’ve had no problem, but now I’m a television viewer.
+I’ve sometimes found lifting whatever across the garden these days is difficult, but before it was easy.
+I try to keep everything in precise order, so things at the same place all the time.
+It’s sort of reorganizing your life, try and do everything in one place before you move to another.
+There are occasions when I can’t participate in events because I’m too fatigued and I’ve learned that it’s important to pay attention to my body when it’s telling me to rest ... I am determined not to let this disease steal my life… … The pain and distressing fatigue made it difficult to exercise, as well, which led to decreased function and more weight gain. I felt trapped in a distressing cycle of illness ... The damage to my lungs from the sarcoidosis has left me with many limitations but I try not to allow these limitations to stop me from living my best life. I work full- time, I travel, I exercise and interact with my friends and family.
+I am on oxygen all the time, and can only walk a short distance. Because my left lung collapsed due to so much scar tissue, I have partially lost my voice.
+I limit my physical activities, take measures to keep my hands and feet warm at all times, avoid unnecessary physical contact with people, and avoid eating out. I also try to limit my travel.
+When I was first diagnosed [with IPF], we made significant lifestyle changes, we downsized our house in preparation and immediately booked all the holidays we could. I now only work part time, which enables me to work around the many hospital appointments. Allison accompanies me on most appointments for moral support and to listen to the detail.
+Under occupational health advice, Charlie’s employer has altered his role so he is office based now and has reduced working hours.
+I find it very frustrating that I cannot do the amount of manual tasks I used to do and quite often have to leave jobs unfinished for another time. Jobs I would previously do without thinking now have to be planned and timed. Some tasks I just can’t do at all anymore which goes against a lifetime of independence.
+Daily routines like taking a shower, brushing my teeth, or getting dressed are a full time job.
+As the disease progressed, it became more exhausting. I couldn’t do anything without oxygen. Everything I try to do, which would usually take a day to do, takes me several days instead.
+I started to notice the effects of the disease and how difficult very simple tasks such as brushing my teeth, taking a shower, putting on clothes, chronic coughing with clear mucus, walking, and climbing stairs or inclines had become.
+I get breathless doing everyday things like making a cup of tea. It can be quite isolating, but you’ve got to keep going and learn how to adapt to your new norm.
+Sheetal became breathless when on a long walk or climbing stairs, but she was able to continue working, do the shopping, daily chores and look after Naisha. She wanted to live and be there for Naisha and was able to live a fairly normal life with her symptoms. She was a very strong and courageous person, in fact, the bravest woman I’ve known. Nothing phased her. But it must have been incredibly difficult for her living in the knowledge that she had limited time– particularly as a mother who wanted to be there to see her daughter grow up.
+You effectively become disabled in your own house. You need care. You need to have somebody to help you with simple tasks like washing and dressing.
+My breathing became laboured and simply walking exhausted me — stairs, hills and steep grades were killers. Basic chores involving any form of exertion not only slowed my ability to do things but my desire to do them.
+I am on oxygen 24/7 but I still struggle with day-to-day activities.
+Initially, you notice it because you find, you know, walking up hills difficult… then over time even walking up the stairs ... slowly it becomes difficult even to walk on the flat.
+My activities are severely limited now. Going and taking in my recycling bin requires supplementary oxygen.
+I can’t get out to get the paper every day, so I read the paper every morning, virtually.
+I took time off from work and worked from home on many occasions.
+I began to feel isolated and ostracized because of the cough. I was embarrassed by the shortness of breath. I was irritable and suffered from insomnia because of the Prednisone that I was on to control my symptoms, and I was depressed about the weight it caused me to gain.
+Well, if you can’t breathe, you can’t do anything. And at this point of the journey, that’s about where I am. I can do no housework, I can’t even wash my hair. I have to plan everything that I’m going to do that’s going to take energy.
+I had scarring after severe ARDS – it’s nickname is concrete lung – the lung becomes so rigid. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. Unfortunately a pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless but that was 2yrs later.
+I am on hospice care now and have found it to be so helpful and encouraging. I am 77, but mostly enjoy life.
+We adapted to a slower pace of life. Changes were made to our home to make it easier for us both to move around. We got used to a different social life, as I was unable to leave Peter for more than 2 hours at a time.
+I try not to do things that trigger my cough, which is everything. I’m embarrassed with other people’s reactions as they don’t understand my condition.
+[In the context of the COVID-19 pandemic] all that year, I had been pulling away from social interaction… So when March 2020 came along it was like more of the same.
+… I’m trying to fill my time and concentrate on something else worthwhile, the rugby club and the APF charity fit the bill!
+We’ve also become involved with the APF support group which is great for connecting with and helping others.
+ Because who wants to go out, first thing they think is that I’m contagious, and I’m coughing all over the place [… ] the first thing people think is why can’t she do something about that cough? ... But they don’t understand what the problem is, why I can’t stop coughing, and it does, you know, I’m not going to say I get embarrassed by it, but I don’t want anybody to feel [un]comfortable [… ] You know, like recently there was something, my granddaughter received an award, and I couldn’t go. So I just made the choice not to go. But it has impacted my life. I man, I’m pretty much home bound.
+Sue became ill in her early fifties with pulmonary fibrosis. Very quickly life changed for us. We’ve been together since we were teenagers. We were devastated when we received the diagnosis of IPF. I’m always reminding myself that Sue used to be able to do everything and now she can’t I have to be an extension of her. She still has the same strong opinions, emotions and aspirations. I’ve learnt to be more patient, tolerant and understanding.
+Caring simply means you just help them achieve whatever it is they want to do. Being a carer for your partner pulls on the heart strings and tests all the bonds you have relied on throughout your life together. I feel empowered by understanding the disease and treatments.
+For me and my wife the two most difficult parts of living with scleroderma are 1) the sense of uncertainty and 2) the coordination of care among the many doctors and facilities involved. The sense of uncertainty makes us fearful of the real and imaginary symptoms that we see in me.
+‘I got told off by my daughter for cutting the grass. But I got to do it. I got to do it when I get the chance.’
+‘My daughter knows, my husband knows. He has been very protective in a loving way. My son, haven’t told him.’
+‘My son had a shock when he saw me with the oxygen.’
+‘Eventually she is talking about us moving downstairs and staying downstairs once it gets to a certain point—well I don’t want that. I’d rather take 10 minutes to go upstairs to go to bed than staying downstairs all the time.’
+‘What consumes my husband controls my life as well.’
+‘It soon became about logistics and practicalities and how our home would need to be adapted with a bedroom downstairs and wider door frames and ramps for wheel chair access.’
+‘At the time, we didn’t feel the full force of what this meant. It was scary to think that my dad had only possibly 5 years to live, but because he hadn’t changed much (apart from a consistent cough), the terminal diagnosis hadn’t quite hit home ... His use of oxygen tanks was a big adjustment at first, and at times was difficult to see. But we knew he needed it to continue being as active as possible.’
+‘Pulmonary fibrosis has hit my family hard, but the magnitude and impact on families grows exponentially when you multiply that by as many as 500,000 deaths every decade in the US alone.’
+‘I’ve had some truly frightening experiences where coughing has caused my throat to close and, for a few seconds, I can’t inhale or exhale. This lasts only a few seconds but it is terrifying for my family.’
+‘It affects your whole family ... our children, our extended friends, everybody’s lives were tinged by the illness that I was going through.’
+‘I have tried to talk about this (end of life care) with my wife, but she interrupted me suddenly; she does not even want to hear me talk.’
+In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers that would allow an adequate follow-up and treatment to those suffering from the disease.
+As there is no national transplant waiting list, it is not guaranteed that the person who needs the transplant most will get an available organ first.
+One of his biggest fears is that he will miss the ‘window of opportunity’ to go on the waiting list. If his health declines too much, he might no longer be suitable: he needs to be sick enough to need a transplant, but not too sick to prevent the transplant going ahead.
+Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC). Initially I ended up purchasing a POC out of pocket because it was difficult to get through insurance. Tanks are very heavy and, depending on your flow rate, you may have to carry more than one tank with you. Last fall I was prescribed a POC with a low continuous flow capability and it took over two months, and several follow-up calls by me… oxygen deliveries can be unreliable and sometimes require that you be home for a full day.
+I wanna know how I’m doing you know, I want to be able to see this is what it was last time I did the test and this is what it is now.
+I’ve got every reading I’ve ever done for the last 3 or 4 years. So, when my boy graphed it on the computer so we can see exactly where I’m at, how I’m going, you know whether my gas transfer is going up or down, do that type of thing. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a terrific gauge.
+I sort of keep my phone, does the counting actually, number of steps and kilometres walked so, that’s a rough guide to how much I’ve done.
+Sometimes the caregiver really knows … living with someone, I think you have a better perspective. And I think it’d be valuable for you to get the caregiver’s opinion … because they’re with them all the time.'''
+
+final_summary = recursive_summarize(text)
+print("\n%%%%%%%%%%%%%%%%%%%%%\n")
+print("Final summary:", final_summary)
+
+
+######### Recursion level:  1 
+
+######### 
+Number of pieces:  16
+****************************************************
+Piece: 1  out of  16 pieces
+As IPF was destroying my dad’s life, he struggled with the disappointment that no cure existed, and he looked for a way to support research that could lead to a cure.
+‘I just wish it would stop. The feeling that it is never going to improve is sometimes overwhelming.
+I used to play a lot of golf, swimming, cricket, you name it. I’ve had no problem, but now I’m a television viewer.
+I’ve sometimes found lifting whatever across the garden these days is difficult, but before it was easy.
+I try to keep everything in precise order, so things at the same place all the time.
+It’s sort of reorganizing your life, try and do everything in one place before you move to another.
+There are occasions when I can’t participate in events because I’m too fatigued and I’ve learned that it’s important to pay attention to 
+
+SUMNMARY:  I used to play a lot of golf, swimming, cricket, you name it. Now I’m a television viewer. The feeling that it is never going to improve is sometimes overwhelming. There are occasions when I can’t participate in events.
+****************************************************
+****************************************************
+Piece: 2  out of  16 pieces
+m too fatigued and I’ve learned that it’s important to pay attention to my body when it’s telling me to rest... I am determined not to let this disease steal my life… … The pain and distressing fatigue made it difficult to exercise, as well, which led to decreased function and more weight gain. I felt trapped in a distressing cycle of illness... The damage to my lungs from the sarcoidosis has left me with many limitations but I try not to allow these limitations to stop me from living my best life. I work full- time, I travel, I exercise and interact with my friends and family.
+I am on oxygen all the time, and can only walk a short distance. Because my left lung collapsed due to so much scar tissue, I have partially lost my voice.
+I limit my physical activities, take measures to keep my hands and feet warm at all times, avoid unnecessary physical contact with people, and avoid eating out. 
+
+SUMNMARY:  Saridosis has left me with many limitations but I try not to allow these limitations to stop me from living my best life. I limit my physical activities, take measures to keep my hands and feet warm at all times, avoid unnecessary physical contact with people, and avoid eating out.
+****************************************************
+****************************************************
+Piece: 3  out of  16 pieces
+ hands and feet warm at all times, avoid unnecessary physical contact with people, and avoid eating out. I also try to limit my travel.
+When I was first diagnosed [with IPF], we made significant lifestyle changes, we downsized our house in preparation and immediately booked all the holidays we could. I now only work part time, which enables me to work around the many hospital appointments. Allison accompanies me on most appointments for moral support and to listen to the detail.
+Under occupational health advice, Charlie’s employer has altered his role so he is office based now and has reduced working hours.
+I find it very frustrating that I cannot do the amount of manual tasks I used to do and quite often have to leave jobs unfinished for another time. Jobs I would previously do without thinking now have to be planned and timed. Some tasks I just can’t do at all anymore which goes against a lifetime of independence.
+Daily routines like taking a shower, brushing my teeth, or getting 
+
+SUMNMARY:  When Charlie was first diagnosed with IPF he made significant lifestyle changes. He now only work part time, which enables him to work around the many hospital appointments.
+****************************************************
+****************************************************
+Piece: 4  out of  16 pieces
+ against a lifetime of independence.
+Daily routines like taking a shower, brushing my teeth, or getting dressed are a full time job.
+As the disease progressed, it became more exhausting. I couldn’t do anything without oxygen. Everything I try to do, which would usually take a day to do, takes me several days instead.
+I started to notice the effects of the disease and how difficult very simple tasks such as brushing my teeth, taking a shower, putting on clothes, chronic coughing with clear mucus, walking, and climbing stairs or inclines had become.
+I get breathless doing everyday things like making a cup of tea. It can be quite isolating, but you’ve got to keep going and learn how to adapt to your new norm.
+Sheetal became breathless when on a long walk or climbing stairs, but she was able to continue working, do the shopping, daily chores and look after Naisha. She wanted to live and be there for 
+
+SUMNMARY:  Sheetal became breathless when on a long walk or climbing stairs. But she was able to continue working, do the shopping, daily chores and look after Naisha.
+****************************************************
+****************************************************
+Piece: 5  out of  16 pieces
+ do the shopping, daily chores and look after Naisha. She wanted to live and be there for Naisha and was able to live a fairly normal life with her symptoms. She was a very strong and courageous person, in fact, the bravest woman I’ve known. Nothing phased her. But it must have been incredibly difficult for her living in the knowledge that she had limited time– particularly as a mother who wanted to be there to see her daughter grow up.
+You effectively become disabled in your own house. You need care. You need to have somebody to help you with simple tasks like washing and dressing.
+My breathing became laboured and simply walking exhausted me — stairs, hills and steep grades were killers. Basic chores involving any form of exertion not only slowed my ability to do things but my desire to do them.
+I am on oxygen 24/7 but I still struggle with day-to-day activities.
+Initially, you notice it because you find, you know 
+
+SUMNMARY:  My breathing became laboured and simply walking exhausted me. Basic chores involving any form of exertion not only slowed my ability to do things but my desire to do them. I am on oxygen 24/7 but I still struggle with day-to-day activities.
+****************************************************
+****************************************************
+Piece: 6  out of  16 pieces
+ with day-to-day activities.
+Initially, you notice it because you find, you know, walking up hills difficult… then over time even walking up the stairs... slowly it becomes difficult even to walk on the flat.
+My activities are severely limited now. Going and taking in my recycling bin requires supplementary oxygen.
+I can’t get out to get the paper every day, so I read the paper every morning, virtually.
+I took time off from work and worked from home on many occasions.
+I began to feel isolated and ostracized because of the cough. I was embarrassed by the shortness of breath. I was irritable and suffered from insomnia because of the Prednisone that I was on to control my symptoms, and I was depressed about the weight it caused me to gain.
+Well, if you can’t breathe, you can’t do anything. And at this point of the journey, that’s about where I am. 
+
+SUMNMARY:  My activities are severely limited now. Going and taking in my recycling bin requires supplementary oxygen. I can’t get out to get the paper every day, so I read the paper. I began to feel isolated and ostracized because of the cough.
+****************************************************
+****************************************************
+Piece: 7  out of  16 pieces
+ do anything. And at this point of the journey, that’s about where I am. I can do no housework, I can’t even wash my hair. I have to plan everything that I’m going to do that’s going to take energy.
+I had scarring after severe ARDS – it’s nickname is concrete lung – the lung becomes so rigid. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. Unfortunately a pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless but that was 2yrs later.
+I am on hospice care now and have found it to be so helpful and encouraging. I am 77, but mostly enjoy life.
+We adapted to a slower pace of life. Changes were made to our home to make it easier for us both 
+
+SUMNMARY:  I had scarring after severe ARDS – it’s nickname is concrete lung. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. Unfortunately a pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless but that was 2yrs later. I am on hospice care now and have found it to be so helpful and encouraging.
+****************************************************
+****************************************************
+Piece: 8  out of  16 pieces
+ to a slower pace of life. Changes were made to our home to make it easier for us both to move around. We got used to a different social life, as I was unable to leave Peter for more than 2 hours at a time.
+I try not to do things that trigger my cough, which is everything. I’m embarrassed with other people’s reactions as they don’t understand my condition.
+[In the context of the COVID-19 pandemic] all that year, I had been pulling away from social interaction… So when March 2020 came along it was like more of the same.
+… I’m trying to fill my time and concentrate on something else worthwhile, the rugby club and the APF charity fit the bill!
+We’ve also become involved with the APF support group which is great for connecting with and helping others.
+ Because who wants to go out, first thing they think is that I’m contagious, 
+
+SUMNMARY:  I try not to do things that trigger my cough, which is everything. I’m embarrassed with other people’s reactions as they don’t understand my condition. We’ve also become involved with the APF support group which is great.
+****************************************************
+****************************************************
+Piece: 9  out of  16 pieces
+
+ Because who wants to go out, first thing they think is that I’m contagious, and I’m coughing all over the place [… ] the first thing people think is why can’t she do something about that cough?... But they don’t understand what the problem is, why I can’t stop coughing, and it does, you know, I’m not going to say I get embarrassed by it, but I don’t want anybody to feel [un]comfortable [… ] You know, like recently there was something, my granddaughter received an award, and I couldn’t go. So I just made the choice not to go. But it has impacted my life. I man, I’m pretty much home bound.
+Sue became ill in her early fifties with pulmonary fibrosis. Very quickly life changed for us. We’ve been together since we were teenagers. We were devastated when 
+
+SUMNMARY:  Sue became ill in her early fifties with pulmonary fibrosis. "We were devastated when we were devastated," she says. "I'm pretty much home bound"
+****************************************************
+****************************************************
+Piece: 10  out of  16 pieces
+ life changed for us. We’ve been together since we were teenagers. We were devastated when we received the diagnosis of IPF. I’m always reminding myself that Sue used to be able to do everything and now she can’t I have to be an extension of her. She still has the same strong opinions, emotions and aspirations. I’ve learnt to be more patient, tolerant and understanding.
+Caring simply means you just help them achieve whatever it is they want to do. Being a carer for your partner pulls on the heart strings and tests all the bonds you have relied on throughout your life together. I feel empowered by understanding the disease and treatments.
+For me and my wife the two most difficult parts of living with scleroderma are 1) the sense of uncertainty and 2) the coordination of care among the many doctors and facilities involved. The sense of uncertainty makes us fearful of the real and imaginary symptoms that we see in me.
+‘ 
+
+SUMNMARY:  Being a carer for your partner pulls on the heart strings and tests all the bonds you have relied on throughout your life together. I’ve learnt to be more patient, tolerant and understanding. I feel empowered by understanding the disease and treatments.
+****************************************************
+****************************************************
+Piece: 11  out of  16 pieces
+ of uncertainty makes us fearful of the real and imaginary symptoms that we see in me.
+‘I got told off by my daughter for cutting the grass. But I got to do it. I got to do it when I get the chance.’
+‘My daughter knows, my husband knows. He has been very protective in a loving way. My son, haven’t told him.’
+‘My son had a shock when he saw me with the oxygen.’
+‘Eventually she is talking about us moving downstairs and staying downstairs once it gets to a certain point—well I don’t want that. I’d rather take 10 minutes to go upstairs to go to bed than staying downstairs all the time.’
+‘What consumes my husband controls my life as well.’
+‘It soon became about logistics and practicalities and how our home would need to be adapted with a bedroom downstairs and wider door frames and 
+
+SUMNMARY:  'I got told off by my daughter for cutting the grass. But I got to do it when I get the chance' 'I'd rather take 10 minutes to go upstairs to go to bed than staying downstairs all the time'
+****************************************************
+****************************************************
+Piece: 12  out of  16 pieces
+ practicalities and how our home would need to be adapted with a bedroom downstairs and wider door frames and ramps for wheel chair access.’
+‘At the time, we didn’t feel the full force of what this meant. It was scary to think that my dad had only possibly 5 years to live, but because he hadn’t changed much (apart from a consistent cough), the terminal diagnosis hadn’t quite hit home... His use of oxygen tanks was a big adjustment at first, and at times was difficult to see. But we knew he needed it to continue being as active as possible.’
+‘Pulmonary fibrosis has hit my family hard, but the magnitude and impact on families grows exponentially when you multiply that by as many as 500,000 deaths every decade in the US alone.’
+‘I’ve had some truly frightening experiences where coughing has caused my throat to close and, for a few seconds, I can 
+
+SUMNMARY:  ‘At the time, we didn’t feel the full force of what this meant. His use of oxygen tanks was a big adjustment at first, and at times was difficult to see. But we knew he needed it to continue being as active as possible.’
+****************************************************
+****************************************************
+Piece: 13  out of  16 pieces
+ truly frightening experiences where coughing has caused my throat to close and, for a few seconds, I can’t inhale or exhale. This lasts only a few seconds but it is terrifying for my family.’
+‘It affects your whole family... our children, our extended friends, everybody’s lives were tinged by the illness that I was going through.’
+‘I have tried to talk about this (end of life care) with my wife, but she interrupted me suddenly; she does not even want to hear me talk.’
+In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers that would allow an adequate follow-up and treatment to those suffering from the disease.
+As there is no national transplant waiting list, it is not guaranteed that the person who needs the transplant most will get an available organ first.
+One of his biggest fears is that he will miss the   
+
+SUMNMARY:  In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers. There is no national transplant waiting list.
+****************************************************
+****************************************************
+Piece: 14  out of  16 pieces
+ will get an available organ first.
+One of his biggest fears is that he will miss the ‘window of opportunity’ to go on the waiting list. If his health declines too much, he might no longer be suitable: he needs to be sick enough to need a transplant, but not too sick to prevent the transplant going ahead.
+Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC). Initially I ended up purchasing a POC out of pocket because it was difficult to get through insurance. Tanks are very heavy and, depending on your flow rate, you may have to carry more than one tank with you. Last fall I was prescribed a POC with a low continuous flow capability and it took over two months, and several follow-up calls by me… oxygen deliveries can be unreliable and sometimes require that you be home for a full day.
+I wanna know how I’m doing you know, I want to be able to 
+
+SUMNMARY:  Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC) Initially I ended up purchasing a POC out of pocket because it was difficult to get through insurance. Tanks are very heavy and, depending on your flow rate, you may have to carry more than one tank with you.
+****************************************************
+****************************************************
+Piece: 15  out of  16 pieces
+.
+I wanna know how I’m doing you know, I want to be able to see this is what it was last time I did the test and this is what it is now.
+I’ve got every reading I’ve ever done for the last 3 or 4 years. So, when my boy graphed it on the computer so we can see exactly where I’m at, how I’m going, you know whether my gas transfer is going up or down, do that type of thing. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a terrific gauge.
+I sort of keep my phone, does the counting actually, number of steps and kilometres walked so, that’s a rough guide to how much I’ve done.
+Sometimes the caregiver really knows … living with someone, I think you have a better perspective. And I think it’d be valuable for 
+
+SUMNMARY:  “I want to be able to see this is what it was last time I did the test. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a good gauge,” he says.
+****************************************************
+****************************************************
+Piece: 16  out of  16 pieces
+ someone, I think you have a better perspective. And I think it’d be valuable for you to get the caregiver’s opinion … because they’re with them all the time. 
+
+SUMNMARY:  summarize:  someone, I think you have a better perspective. And I think it’d be valuable for you to get the caregiver’s opinion.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  2 
+
+######### 
+Number of pieces:  5
+****************************************************
+Piece: 1  out of  5 pieces
+I used to play a lot of golf, swimming, cricket, you name it. Now I’m a television viewer. The feeling that it is never going to improve is sometimes overwhelming. There are occasions when I can’t participate in events. Saridosis has left me with many limitations but I try not to allow these limitations to stop me from living my best life. I limit my physical activities, take measures to keep my hands and feet warm at all times, avoid unnecessary physical contact with people, and avoid eating out. When Charlie was first diagnosed with IPF he made significant lifestyle changes. He now only work part time, which enables him to work around the many hospital appointments. Sheetal became breathless when on a long walk or climbing stairs. But she was able to continue working, do the shopping, daily chores and look after Naisha. My breathing became laboured and simply walking exhausted me. Basic chores involving any form of exertion not only slowed my ability to do things but my 
+
+SUMNMARY:  Charlie was first diagnosed with IPF and made significant lifestyle changes. He now only work part time, which enables him to work around the many hospital appointments. Sheetal became breathless when on a long walk or climbing stairs. But she was able to continue working, do the shopping and daily chores.
+****************************************************
+****************************************************
+Piece: 2  out of  5 pieces
+ me. Basic chores involving any form of exertion not only slowed my ability to do things but my desire to do them. I am on oxygen 24/7 but I still struggle with day-to-day activities. My activities are severely limited now. Going and taking in my recycling bin requires supplementary oxygen. I can’t get out to get the paper every day, so I read the paper. I began to feel isolated and ostracized because of the cough. I had scarring after severe ARDS – it’s nickname is concrete lung. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. Unfortunately a pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless but that was 2yrs later. I am on hospice care now and have found it to be so helpful and encouraging. I try not to do 
+
+SUMNMARY:  I had scarring after severe ARDS – it’s nickname is concrete lung. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. A pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless.
+****************************************************
+****************************************************
+Piece: 3  out of  5 pieces
+ hospice care now and have found it to be so helpful and encouraging. I try not to do things that trigger my cough, which is everything. I’m embarrassed with other people’s reactions as they don’t understand my condition. We’ve also become involved with the APF support group which is great. Sue became ill in her early fifties with pulmonary fibrosis. "We were devastated when we were devastated," she says. "I'm pretty much home bound" Being a carer for your partner pulls on the heart strings and tests all the bonds you have relied on throughout your life together. I’ve learnt to be more patient, tolerant and understanding. I feel empowered by understanding the disease and treatments. 'I got told off by my daughter for cutting the grass. But I got to do it when I get the chance' 'I'd rather take 10 minutes to go upstairs to go to bed than staying downstairs all the time' ‘At the time 
+
+SUMNMARY:  Sue became ill in her early fifties with pulmonary fibrosis. "We were devastated when we were devastated," she says. Being a carer for your partner pulls on the heart strings.
+****************************************************
+****************************************************
+Piece: 4  out of  5 pieces
+ minutes to go upstairs to go to bed than staying downstairs all the time' ‘At the time, we didn’t feel the full force of what this meant. His use of oxygen tanks was a big adjustment at first, and at times was difficult to see. But we knew he needed it to continue being as active as possible.’ In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers. There is no national transplant waiting list. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC) Initially I ended up purchasing a POC out of pocket because it was difficult to get through insurance. Tanks are very heavy and, depending on your flow rate, you may have to carry more than one tank with you. “I want to be able to see this is what it was last time I did the test. And within say right, maybe I gotta do a bit more exercise 
+
+SUMNMARY:  In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC)
+****************************************************
+****************************************************
+Piece: 5  out of  5 pieces
+ last time I did the test. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a good gauge,” he says. summarize:  someone, I think you have a better perspective. And I think it’d be valuable for you to get the caregiver’s opinion. 
+
+SUMNMARY:  summarize:  last time I did the test. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a good gauge. summarize:  someone, I think you have a better perspective.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  3 
+
+######### 
+Number of pieces:  2
+****************************************************
+Piece: 1  out of  2 pieces
+Charlie was first diagnosed with IPF and made significant lifestyle changes. He now only work part time, which enables him to work around the many hospital appointments. Sheetal became breathless when on a long walk or climbing stairs. But she was able to continue working, do the shopping and daily chores. I had scarring after severe ARDS – it’s nickname is concrete lung. The medical staff presumed I would lose a great deal of lung capacity. After some brilliant hospital physiotherapy, a year after ICU, my lungs were fairly normal. A pleural effusion of my left lung through having my leukaemia colonise this area, has left me slightly breathless. Sue became ill in her early fifties with pulmonary fibrosis. "We were devastated when we were devastated," she says. Being a carer for your partner pulls on the heart strings. In Spain it is necessary to improve early diagnosis of IPF. It is also necessary to create specific Multidisciplinary Centers. Most oxygen providers will 
+
+SUMNMARY:  Sheetal became breathless when on a long walk or climbing stairs. Sue became ill in her early fifties with pulmonary fibrosis. In Spain it is necessary to improve early diagnosis of IPF.
+****************************************************
+****************************************************
+Piece: 2  out of  2 pieces
+ of IPF. It is also necessary to create specific Multidisciplinary Centers. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator (POC) summarize:  last time I did the test. And within say right, maybe I gotta do a bit more exercise or whatever else, it’s a good gauge. summarize:  someone, I think you have a better perspective. 
+
+SUMNMARY:  summarize:  of IPF. It is also necessary to create specific Multidisciplinary Centers. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator.
+****************************************************
+
+%%%%%%%%%%%%%%%%%%%%%
+
+Final summary: Sue became ill in her early fifties with pulmonary fibrosis. In Spain it is necessary to improve early diagnosis of IPF. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator.

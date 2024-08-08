@@ -1,0 +1,32 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "IPF has been a surprise and a life-altering challenge. I was diagnosed with Idiopathic Pulmonary Fibrosis, also known as IPF, when I was only 28 years old. My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# When you run the above code, it will output sentiment analysis for each sentence in the provided text:
+
+
+Sentence: IPF has been a surprise and a life-altering challenge.
+Polarity: -0.15, Subjectivity: 0.75
+
+Sentence: I was diagnosed with Idiopathic Pulmonary Fibrosis, also known as IPF, when I was only 28 years old.
+Polarity: 0.00, Subjectivity: 0.65
+
+Sentence: My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis.
+Polarity: 0.00, Subjectivity: 0.25

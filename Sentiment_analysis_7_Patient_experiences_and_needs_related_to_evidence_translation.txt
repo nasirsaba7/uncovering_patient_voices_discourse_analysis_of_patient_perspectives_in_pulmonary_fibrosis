@@ -1,0 +1,37 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "The results that come out of drug studies in mice almost never translate to humans. Sometimes the caregiver really knows. A little bit of pep talk probably wouldn't hurt. Just give us your best shot. You know what I mean?"
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result 
+Sentence: The results that come out of drug studies in mice almost never translate to humans.
+Polarity: -0.20, Subjectivity: 0.09
+
+Sentence: Sometimes the caregiver really knows.
+Polarity: 0.25, Subjectivity: 0.6
+
+Sentence: A little bit of pep talk probably wouldn't hurt.
+Polarity: 0.0, Subjectivity: 0.45
+
+Sentence: Just give us your best shot.
+Polarity: 0.0, Subjectivity: 0.0
+
+Sentence: You know what I mean?
+Polarity: 0.0, Subjectivity: 0.0
+

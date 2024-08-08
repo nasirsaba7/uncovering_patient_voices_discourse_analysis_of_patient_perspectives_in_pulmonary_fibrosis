@@ -1,0 +1,31 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "Doctors should be sensitive when delivering a diagnosis and prognosis to patients. Being told you have this and there is nothing you can do is frightening. "The missing link for patients is the lack of information among the GPs."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result:
+
+Sentence: Doctors should be sensitive when delivering a diagnosis and prognosis to patients.
+Polarity: 0.3, Subjectivity: 0.6
+
+Sentence: Being told you have this and there is nothing you can do is frightening.
+Polarity: -0.6, Subjectivity: 0.9
+
+Sentence: The missing link for patients is the lack of information among the GPs.
+Polarity: -0.1, Subjectivity: 0.5

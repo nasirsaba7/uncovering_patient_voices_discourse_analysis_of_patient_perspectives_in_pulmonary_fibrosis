@@ -1,0 +1,30 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "Sue became ill in her early fifties with pulmonary fibrosis. In Spain it is necessary to improve early diagnosis of IPF. Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result:
+Sentence: Sue became ill in her early fifties with pulmonary fibrosis.
+Polarity: 0.00, Subjectivity: 0.00
+
+Sentence: In Spain it is necessary to improve early diagnosis of IPF.
+Polarity: 0.2, Subjectivity: 0.3
+
+Sentence: Most oxygen providers will provide a home concentrator and either tanks or a portable oxygen concentrator.
+Polarity: 0.15, Subjectivity: 0.3

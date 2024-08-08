@@ -1,0 +1,359 @@
+# Install the transformers package from Hugging Face:
+!pip install transformers
+!pip install torch
+!pip install tensorflow
+
+
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+
+# Load the model and tokenizer
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-large-cnn')
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-large-cnn')
+
+
+
+def summarize(text, maxSummarylength=500):
+    # Encode the text and summarize
+    inputs = tokenizer.encode("summarize: " +
+                              text,
+                              return_tensors="pt",
+                              max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs, max_length=maxSummarylength,
+                                 min_length=int(maxSummarylength/5),
+                                 length_penalty=10.0,
+                                 num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+
+
+def split_text_into_pieces(text,
+                           max_tokens=900,
+                           overlapPercent=10):
+    # Tokenize the text
+    tokens = tokenizer.tokenize(text)
+
+    # Calculate the overlap in tokens
+    overlap_tokens = int(max_tokens * overlapPercent / 100)
+
+    # Split the tokens into chunks of size
+    # max_tokens with overlap
+    pieces = [tokens[i:i + max_tokens]
+              for i in range(0, len(tokens),
+                             max_tokens - overlap_tokens)]
+
+    # Convert the token pieces back into text
+    text_pieces = [tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(piece),
+        skip_special_tokens=True) for piece in pieces]
+
+    return text_pieces
+
+
+def recursive_summarize(text, max_length=200, recursionLevel=0):
+    recursionLevel=recursionLevel+1
+    print("######### Recursion level: ",
+          recursionLevel,"\n\n######### ")
+    tokens = tokenizer.tokenize(text)
+    expectedCountOfChunks = len(tokens)/max_length
+    max_length=int(len(tokens)/expectedCountOfChunks)+2
+
+    # Break the text into pieces of max_length
+    pieces = split_text_into_pieces(text, max_tokens=max_length)
+
+    print("Number of pieces: ", len(pieces))
+    # Summarize each piece
+    summaries=[]
+    k=0
+    for k in range(0, len(pieces)):
+        piece=pieces[k]
+        print("****************************************************")
+        print("Piece:",(k+1)," out of ", len(pieces), "pieces")
+        print(piece, "\n")
+        summary =summarize(piece, maxSummarylength=max_length/3*2)
+        print("SUMNMARY: ", summary)
+        summaries.append(summary)
+        print("****************************************************")
+
+    concatenated_summary = ' '.join(summaries)
+
+    tokens = tokenizer.tokenize(concatenated_summary)
+
+    if len(tokens) > max_length:
+        # If the concatenated_summary is too long, repeat the process
+        print("############# GOING RECURSIVE ##############")
+        return recursive_summarize(concatenated_summary,
+                                   max_length=max_length,
+                                   recursionLevel=recursionLevel)
+    else:
+      # Concatenate the summaries and summarize again
+        final_summary=concatenated_summary
+        if len(pieces)>1:
+            final_summary = summarize(concatenated_summary,
+                                  maxSummarylength=max_length)
+        return final_summary
+
+
+
+# Example usage - Patients’ perspectives on design of clinical trials including patients’ experiences on trial site visits and logistics
+text = '''There’s 10 plus visits in a year … then at each visit, it’s at least a two-hour visit … that’s a fair amount of hard work as a patient. And I’m just not sure that I’d be up to that amount of work … I probably would still go forward with it … but having looked at what my requirements are for it, it’s just dampened my enthusiasm of it. I’m still going forward with it, I’m just not as excited.
+Getting to the weekly visits, that can be difficult. My wife is in a wheelchair.
+I suffer from chronic fatigue … Questionnaires are taken at every visit so that’s going to be a 30-minute function so I’m not sure that, that needs to be done frankly.
+I think two hours would be probably the outer limit of length. I could do it, but I just think anything more than that is pushing it ... you’re going to be dealing with people who aren’t always having a good day.
+There’s a lot of blood tests ... And when I saw this, I thought, wow, that’s a lot. And each time ... each time you get blood tests right for example.
+I was wondering about that and the blood test frequency, a little bit high I would say. when I saw this, I thought, wow, that’s a lot. And each time ... each time you get blood tests right for example.
+The total, the 52 weeks didn’t seem like a deal breaker but the greater the number I think the more people would find more onerous.
+Chronic fatigue syndrome; I only have five to six hours a day of energy to complete activities … so for me … the day is short for me. And chronic fatigue is common amongst ILD patients, so we got to think about that.
+Participants don’t have to change their medications or how often they see their physician.
+If you have a big site … you may have to walk a mile … I can’t do a mile … I don’t typically have a wheelchair, but I might need one for that … it’d be nice to get a shuttle from the parking lot, or get dropped off at a door, or something to know where I’m going and how I could best get there.
+Either bus passes, or city transit, or parking … or the city passes, or … Uber credits or something along that line is good, because it’s hard for some people to get around.
+As long as they’re, I would say, probably morning to early afternoon [discussing visits] is better for most of the patients. His body starts shutting down probably by three in the afternoon. He starts
+going downhill.
+It would help that in working with the study coordinator, that they would have a little bit of flexibility. And if I would have a vacation planned [at] visit 6 that we could, we can move it out a week, but still be within that time period, and do something. So, we just have to see.
+So for instance, I don’t know to change my time or the day of my visit, but as I say, I will do my best. I will do my best to stick to the visits that they will schedule for me.
+I’m big on reminder emails … remind them of visits and remind them at this visit here’s what we’re going to do … just to set the expectation that it’s going to take a while. And then … if there’s anything that needs to be done beforehand. If you tell them up front … maybe that’s a little bit helpful.
+If we had an agenda. If we had a schedule, I would feel less anguish. I would feel more safe.
+I would do whatever I needed to do, but I just thought it was much more reasonable than having to travel far, and the fact that you can do some things on the computer. I liked that.
+Yes, I would benefit indeed [from virtual visit option] because not all the days are the same.
+I guess the most positive thing is that it can be done from home.
+I prefer visits. Well, I prefer … the person I care for to undergo tests for better control, for better monitoring … But if visits were to be virtual, my scoring will not change.
+Because everything that has to be done through the computer is more difficult for me, so I’d rather go to a place in person and get the tests done. I come from a different generation.
+I would expect them to tell me potential adverse events … long term adverse events. I would like them to let me know about them … I always take into account whether it will be detrimental as well for me in terms of adverse events.
+Maybe test results, anything to do with the test results in the trial … if the results could be sent to my PCP and be seen by my PCP as well, that would be great.
+Well, I guess that my primary care physician would like to hear about the … regular testing that I will be undergoing throughout the clinical trial … he refers me to other doctors … therefore it’ll be very important for him to know about those tests, the outcomes, the results, how those tests were done.
+Well the side effects, diarrhoea. I was wondering about that … that really stuck in my mind in terms of concerns.
+[In the context of discussions about side effects] In principle, I’d like to know everything … I’d like to know if there has been secondary effects, I guess this has already been tried on humans. That’s what I’d like to know.
+More than the primary care, I think the pulmonologist would be the one who should be informed. The specialist … I think I would be telling him that I’m getting a trial to see what his opinion is. Once I’m in, I would like for him to have the tests and results at his disposal.
+It’s a really good to have that person [discussing study care navigator] that you know you can always get a hold of because sometimes the doctor … is not available. So having that contact there that is always available … I think to navigate everything and again takes some of that stress level off of you.
+I think it’s all about mental health and I’m thinking about maybe a psychologist, psychological support, having some visits with a professional where she can really explain or share those concerns. I think it goes around the same idea of the peer group or being linked to this trial beyond just a medical fact, the fact that it’s personally and psychologically giving her something.
+Well when you have a peer group you can feel more supported. Psychologically it’s really helpful at least for me as a caretaker and for my mom as a patient to be able to share her experience with someone who’s going through the same thing, I think that’s very helpful.
+At least in studies that I’ve seen, I’ve never seen study partner caregiver compensation. I highly encourage it because they have costs, and they have skin in the game.
+I’m just worrying if something like that happened, and he needs to be hospitalized, and he needed to be on more prednisone than he normally is ... I see that it’s not permitted.
+No, the thing that worried me was, if he had to stop any of his meds that he was on now ... when I saw the list of meds, he wouldn’t have to stop any of his regular meds and be taking placebo. I was OK with that even if he was just taking placebo.
+We went to different hospitals, and they said it’s a sequela of COVID and so we can’t do anything with that. And they don’t have any experience so we can’t do anything.
+They say you are like this and that’s how you are going to end up like. And you think, what’s going to happen in between?
+Well, I’m in the dark about what you can do to help the condition.
+Lack of information always causes more worries.
+If I was diagnosed with lung cancer it would have knocked me over, but knowing I have a fighting chance as things are, it’s not bothering me.
+I was pleased it wasn’t cancer.
+Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be rushed as the news is life changing. Time should not be an issue.
+If somebody says to you it’s mild, moderate or severe, all that immediately goes through your mind is does that mean I have a short life or a long one? It doesn’t tell you what you’re faced with.
+It took me years to get diagnosed and I know this can isolate you so much because you just feel you need to know what is wrong with you so you can deal with it.
+It is extremely unsettling to have a disease that people say is rare and incurable. The research that I did on ILD was also hopeless pointing to low 5 and 10 year survival rates ... I had a lot of unanswered questions: How would my appearance change? Would I suffer? What other organs would be impacted after my lungs? What did I need to do to ensure the financial stability of my family? What did I need to do so that my family did not need me anymore?
+The diagnosis was communicated to me in a realistic manner. There is no treatment and no cure but – I remember the doctor emphasised that but – but there is a medicine that gives encouraging results.
+Being told you have this and there is nothing you can do is frightening. I was told that I wasn’t suitable for transplant, so I felt in a position of no hope. I just had to sit down and take what was coming with no hope, and that was the worst of all.
+I was told my life expectancy was two to five years and then I was scheduled for a check-up for six months later. I was referred to a physiotherapist to learn breathing exercises. That was it – no other information or support was given.
+More thought should be given to the psychological impact of being diagnosed with this devastating disease.
+We were not given a lot of information. Most of what I learned was from attending a support group. I was told when the illness was diagnosed that it was terminal, which came as a shock to both me and my wife.
+I didn’t know what to do initially ... I tried looking at the internet and the information that was available managed to confuse me even more.
+I think at diagnosis, obviously, you need to be told that this is not curable and it’s progressive and it will end your life.
+I think information can be provided in [the] way of a website, or even at the respiratory clinics, little leaflets for people to take. For example, having problems with exercise or keep healthy eating or, you know, when you’re feeling down, these are the resources.
+[Information] should be available to you very early on, to put you onto the right track of exercise and diet.
+I think that [what] the website should include, is that you’re not going to keel over from just exerting yourself a little bit. I was really frightened to do any exercise in case I made things worse.
+The missing link for patients is the lack of information among the GPs. They are not informed about the disease and, in turn, they cannot properly advise patients or refer them to the right specialists.
+We knew nothing about pulmonary fibrosis when mum received her diagnosis and immediately researched it. Google was not kind and we couldn’t believe something so cruel and terminal was unheard of. Anyone we spoke to about pulmonary fibrosis also hadn’t heard about pulmonary fibrosis and we soon became educators. This really needs to change. There has to be more awareness and support for pulmonary fibrosis sufferers and their families.
+It was so hard to find information and any doctors or nurses we did talk to had never had a patient with IPF before. So what they maybe heard about or they were comparing it to COPD or other diseases that it really can’t be compared to. There was no information and it was really hard to find, and it felt like we were completely on our own. From what I found online, it was scary; but I figured if that was the case, then her doctor would tell us.
+[In the context of advanced care planning and end-of-life care] I don’t think the GP knows enough about IPF to be honest because in my experience, they have heard of it but they might have one patient with it but it seems like by the time people are diagnosed, they are too far gone; or it just seems like it’s getting easier to diagnose ... Even the Palliative Care Nurse didn’t know about the oxygen testing and didn’t know about lung disease at all ... So I think they need to be more educated.'''
+
+final_summary = recursive_summarize(text)
+print("\n%%%%%%%%%%%%%%%%%%%%%\n")
+print("Final summary:", final_summary)
+
+
+
+######### Recursion level:  1 
+
+######### 
+Number of pieces:  16
+****************************************************
+Piece: 1  out of  16 pieces
+There’s 10 plus visits in a year … then at each visit, it’s at least a two-hour visit … that’s a fair amount of hard work as a patient. And I’m just not sure that I’d be up to that amount of work … I probably would still go forward with it … but having looked at what my requirements are for it, it’s just dampened my enthusiasm of it. I’m still going forward with it, I’m just not as excited.
+Getting to the weekly visits, that can be difficult. My wife is in a wheelchair.
+I suffer from chronic fatigue … Questionnaires are taken at every visit so that’s going to be a 30-minute function so I’m not sure that, that needs to be done frankly.
+I think two hours would be probably the outer limit of length. I could do it, but I just think anything more than 
+
+SUMNMARY:  "I'm just not sure that I’d be up to that amount of work," he says. "I could do it, but I just think anything more than two hours"
+****************************************************
+****************************************************
+Piece: 2  out of  16 pieces
+ be probably the outer limit of length. I could do it, but I just think anything more than that is pushing it... you’re going to be dealing with people who aren’t always having a good day.
+There’s a lot of blood tests... And when I saw this, I thought, wow, that’s a lot. And each time... each time you get blood tests right for example.
+I was wondering about that and the blood test frequency, a little bit high I would say. when I saw this, I thought, wow, that’s a lot. And each time... each time you get blood tests right for example.
+The total, the 52 weeks didn’t seem like a deal breaker but the greater the number I think the more people would find more onerous.
+Chronic fatigue syndrome; I only have five to six hours a day of energy to complete activities … so for me … the day is short for 
+
+SUMNMARY:  The total, the 52 weeks didn’t seem like a deal breaker but the greater the number I think the more people would find more onerous. I could do it, but I just think anything more than that is pushing it.
+****************************************************
+****************************************************
+Piece: 3  out of  16 pieces
+ to six hours a day of energy to complete activities … so for me … the day is short for me. And chronic fatigue is common amongst ILD patients, so we got to think about that.
+Participants don’t have to change their medications or how often they see their physician.
+If you have a big site … you may have to walk a mile … I can’t do a mile … I don’t typically have a wheelchair, but I might need one for that … it’d be nice to get a shuttle from the parking lot, or get dropped off at a door, or something to know where I’m going and how I could best get there.
+Either bus passes, or city transit, or parking … or the city passes, or … Uber credits or something along that line is good, because it’s hard for some people to get around.
+As long as they’re, I would say, probably morning to 
+
+SUMNMARY:  Participants don’t have to change their medications or how often they see their physician. Uber credits or something along that line is good, because it’s hard for some people to get around.
+****************************************************
+****************************************************
+Piece: 4  out of  16 pieces
+ to get around.
+As long as they’re, I would say, probably morning to early afternoon [discussing visits] is better for most of the patients. His body starts shutting down probably by three in the afternoon. He starts 
+going downhill.
+It would help that in working with the study coordinator, that they would have a little bit of flexibility. And if I would have a vacation planned [at] visit 6 that we could, we can move it out a week, but still be within that time period, and do something. So, we just have to see.
+So for instance, I don’t know to change my time or the day of my visit, but as I say, I will do my best. I will do my best to stick to the visits that they will schedule for me.
+I’m big on reminder emails … remind them of visits and remind them at this visit here’s what we’re going 
+
+SUMNMARY:  As long as they’re, I would say, probably morning to early afternoon [discussing visits] is better for most of the patients. His body starts shutting down probably by three in the afternoon. He starts  going downhill.
+****************************************************
+****************************************************
+Piece: 5  out of  16 pieces
+ remind them of visits and remind them at this visit here’s what we’re going to do … just to set the expectation that it’s going to take a while. And then … if there’s anything that needs to be done beforehand. If you tell them up front … maybe that’s a little bit helpful.
+If we had an agenda. If we had a schedule, I would feel less anguish. I would feel more safe.
+I would do whatever I needed to do, but I just thought it was much more reasonable than having to travel far, and the fact that you can do some things on the computer. I liked that.
+Yes, I would benefit indeed [from virtual visit option] because not all the days are the same.
+I guess the most positive thing is that it can be done from home.
+I prefer visits. Well, I prefer … the person I care for to undergo tests for better control, for better monitoring 
+
+SUMNMARY:  I prefer visits. Well, I prefer the person I care for to undergo tests for better control, for better monitoring. I would do whatever I needed to do, but I just thought it was much more reasonable than having to travel far.
+****************************************************
+****************************************************
+Piece: 6  out of  16 pieces
+ Well, I prefer … the person I care for to undergo tests for better control, for better monitoring … But if visits were to be virtual, my scoring will not change.
+Because everything that has to be done through the computer is more difficult for me, so I’d rather go to a place in person and get the tests done. I come from a different generation.
+I would expect them to tell me potential adverse events … long term adverse events. I would like them to let me know about them … I always take into account whether it will be detrimental as well for me in terms of adverse events.
+Maybe test results, anything to do with the test results in the trial … if the results could be sent to my PCP and be seen by my PCP as well, that would be great.
+Well, I guess that my primary care physician would like to hear about the … regular testing that I will be undergoing throughout the clinical trial … he refers me to other doctors … 
+
+SUMNMARY:  "I would like the results to be sent to my PCP and not to me," he says. "I always take into account whether it will be detrimental as well for me"
+****************************************************
+****************************************************
+Piece: 7  out of  16 pieces
+ … regular testing that I will be undergoing throughout the clinical trial … he refers me to other doctors … therefore it’ll be very important for him to know about those tests, the outcomes, the results, how those tests were done.
+Well the side effects, diarrhoea. I was wondering about that … that really stuck in my mind in terms of concerns.
+[In the context of discussions about side effects] In principle, I’d like to know everything … I’d like to know if there has been secondary effects, I guess this has already been tried on humans. That’s what I’d like to know.
+More than the primary care, I think the pulmonologist would be the one who should be informed. The specialist … I think I would be telling him that I’m getting a trial to see what his opinion is. Once I’m in, I would like for him to have the tests and results at his 
+
+SUMNMARY:  "I’d like to know if there has been secondary effects, I guess this has already been tried on humans," he says. "Well the side effects, diarrhoea. I was wondering about that … that really stuck in my mind in terms of concerns"
+****************************************************
+****************************************************
+Piece: 8  out of  16 pieces
+ Once I’m in, I would like for him to have the tests and results at his disposal.
+It’s a really good to have that person [discussing study care navigator] that you know you can always get a hold of because sometimes the doctor … is not available. So having that contact there that is always available … I think to navigate everything and again takes some of that stress level off of you.
+I think it’s all about mental health and I’m thinking about maybe a psychologist, psychological support, having some visits with a professional where she can really explain or share those concerns. I think it goes around the same idea of the peer group or being linked to this trial beyond just a medical fact, the fact that it’s personally and psychologically giving her something.
+Well when you have a peer group you can feel more supported. Psychologically it’s really helpful at least for me as a caretaker and for my mom 
+
+SUMNMARY:  I think it’s all about mental health and I’m thinking about maybe a psychologist. I think it goes around the same idea of the peer group or being linked to this.
+****************************************************
+****************************************************
+Piece: 9  out of  16 pieces
+ Psychologically it’s really helpful at least for me as a caretaker and for my mom as a patient to be able to share her experience with someone who’s going through the same thing, I think that’s very helpful.
+At least in studies that I’ve seen, I’ve never seen study partner caregiver compensation. I highly encourage it because they have costs, and they have skin in the game.
+I’m just worrying if something like that happened, and he needs to be hospitalized, and he needed to be on more prednisone than he normally is... I see that it’s not permitted.
+No, the thing that worried me was, if he had to stop any of his meds that he was on now... when I saw the list of meds, he wouldn’t have to stop any of his regular meds and be taking placebo. I was OK with that even if he was just taking 
+
+SUMNMARY:  At least in studies, I’ve never seen study partner caregiver compensation. I highly encourage it because they have costs, and they have skin in the game. I was OK with that even if he was just taking placebo.
+****************************************************
+****************************************************
+Piece: 10  out of  16 pieces
+ his regular meds and be taking placebo. I was OK with that even if he was just taking placebo.
+We went to different hospitals, and they said it’s a sequela of COVID and so we can’t do anything with that. And they don’t have any experience so we can’t do anything.
+They say you are like this and that’s how you are going to end up like. And you think, what’s going to happen in between?
+Well, I’m in the dark about what you can do to help the condition.
+Lack of information always causes more worries.
+If I was diagnosed with lung cancer it would have knocked me over, but knowing I have a fighting chance as things are, it’s not bothering me.
+I was pleased it wasn’t cancer.
+Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis 
+
+SUMNMARY:  Lack of information always causes more worries. Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be seen as a form of torture.
+****************************************************
+****************************************************
+Piece: 11  out of  16 pieces
+
+Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be rushed as the news is life changing. Time should not be an issue.
+If somebody says to you it’s mild, moderate or severe, all that immediately goes through your mind is does that mean I have a short life or a long one? It doesn’t tell you what you’re faced with.
+It took me years to get diagnosed and I know this can isolate you so much because you just feel you need to know what is wrong with you so you can deal with it.
+It is extremely unsettling to have a disease that people say is rare and incurable. The research that I did on ILD was also hopeless pointing to low 5 and 10 year survival rates... I had a lot of unanswered questions: How would my appearance change? Would I suffer? What other organs would be impacted after my lungs? What did I need to do to ensure 
+
+SUMNMARY:  Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be rushed as the news is life changing. It is extremely unsettling to have a disease that people say is rare and incurable.
+****************************************************
+****************************************************
+Piece: 12  out of  16 pieces
+ suffer? What other organs would be impacted after my lungs? What did I need to do to ensure the financial stability of my family? What did I need to do so that my family did not need me anymore?
+The diagnosis was communicated to me in a realistic manner. There is no treatment and no cure but – I remember the doctor emphasised that but – but there is a medicine that gives encouraging results.
+Being told you have this and there is nothing you can do is frightening. I was told that I wasn’t suitable for transplant, so I felt in a position of no hope. I just had to sit down and take what was coming with no hope, and that was the worst of all.
+I was told my life expectancy was two to five years and then I was scheduled for a check-up for six months later. I was referred to a physiotherapist to learn breathing exercises. That was it – no other information or support was given.
+More thought should be 
+
+SUMNMARY:  Being told you have this and there is nothing you can do is frightening. I was told that I wasn’t suitable for transplant. I just had to sit down and take what was coming with no hope, and that was the worst of all.
+****************************************************
+****************************************************
+Piece: 13  out of  16 pieces
+ breathing exercises. That was it – no other information or support was given.
+More thought should be given to the psychological impact of being diagnosed with this devastating disease.
+We were not given a lot of information. Most of what I learned was from attending a support group. I was told when the illness was diagnosed that it was terminal, which came as a shock to both me and my wife.
+I didn’t know what to do initially... I tried looking at the internet and the information that was available managed to confuse me even more.
+I think at diagnosis, obviously, you need to be told that this is not curable and it’s progressive and it will end your life.
+I think information can be provided in [the] way of a website, or even at the respiratory clinics, little leaflets for people to take. For example, having problems with exercise or keep healthy eating or, you know, when you’re feeling down, these are the resources. 
+
+SUMNMARY:  More thought should be given to the psychological impact of being diagnosed with this devastating disease. Most of what I learned was from attending a support group. I was told when the illness was diagnosed that it was terminal.
+****************************************************
+****************************************************
+Piece: 14  out of  16 pieces
+ healthy eating or, you know, when you’re feeling down, these are the resources.
+[Information] should be available to you very early on, to put you onto the right track of exercise and diet.
+I think that [what] the website should include, is that you’re not going to keel over from just exerting yourself a little bit. I was really frightened to do any exercise in case I made things worse.
+The missing link for patients is the lack of information among the GPs. They are not informed about the disease and, in turn, they cannot properly advise patients or refer them to the right specialists.
+We knew nothing about pulmonary fibrosis when mum received her diagnosis and immediately researched it. Google was not kind and we couldn’t believe something so cruel and terminal was unheard of. Anyone we spoke to about pulmonary fibrosis also hadn’t heard about pulmonary fibrosis and we soon became educators. This really needs to change. 
+
+SUMNMARY:  The missing link for patients is the lack of information among the GPs. They are not informed about the disease and, in turn, cannot properly advise patients.
+****************************************************
+****************************************************
+Piece: 15  out of  16 pieces
+’t heard about pulmonary fibrosis and we soon became educators. This really needs to change. There has to be more awareness and support for pulmonary fibrosis sufferers and their families.
+It was so hard to find information and any doctors or nurses we did talk to had never had a patient with IPF before. So what they maybe heard about or they were comparing it to COPD or other diseases that it really can’t be compared to. There was no information and it was really hard to find, and it felt like we were completely on our own. From what I found online, it was scary; but I figured if that was the case, then her doctor would tell us.
+[In the context of advanced care planning and end-of-life care] I don’t think the GP knows enough about IPF to be honest because in my experience, they have heard of it but they might have one patient with it but it seems like by the time people are 
+
+SUMNMARY:  It was so hard to find information and any doctors or nurses we did talk to had never had a patient with IPF before. This really needs to change. There has to be more awareness and support for pulmonary fibrosis sufferers.
+****************************************************
+****************************************************
+Piece: 16  out of  16 pieces
+ heard of it but they might have one patient with it but it seems like by the time people are diagnosed, they are too far gone; or it just seems like it’s getting easier to diagnose... Even the Palliative Care Nurse didn’t know about the oxygen testing and didn’t know about lung disease at all... So I think they need to be more educated. 
+
+SUMNMARY:  "It seems like by the time people are diagnosed, they are too far gone," she says. "Even the Palliative Care Nurse didn’t know about the oxygen testing," she adds.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  2 
+
+######### 
+Number of pieces:  4
+****************************************************
+Piece: 1  out of  4 pieces
+"I'm just not sure that I’d be up to that amount of work," he says. "I could do it, but I just think anything more than two hours" The total, the 52 weeks didn’t seem like a deal breaker but the greater the number I think the more people would find more onerous. I could do it, but I just think anything more than that is pushing it. Participants don’t have to change their medications or how often they see their physician. Uber credits or something along that line is good, because it’s hard for some people to get around. As long as they’re, I would say, probably morning to early afternoon [discussing visits] is better for most of the patients. His body starts shutting down probably by three in the afternoon. He starts  going downhill. I prefer visits. Well, I prefer the person I care for to undergo tests for better control, for better monitoring. I would do whatever 
+
+SUMNMARY:  "I'm just not sure that I’d be up to that amount of work," he says. Participants don’t have to change their medications or how often they see their physician.
+****************************************************
+****************************************************
+Piece: 2  out of  4 pieces
+ the person I care for to undergo tests for better control, for better monitoring. I would do whatever I needed to do, but I just thought it was much more reasonable than having to travel far. "I would like the results to be sent to my PCP and not to me," he says. "I always take into account whether it will be detrimental as well for me" "I’d like to know if there has been secondary effects, I guess this has already been tried on humans," he says. "Well the side effects, diarrhoea. I was wondering about that … that really stuck in my mind in terms of concerns" I think it’s all about mental health and I’m thinking about maybe a psychologist. I think it goes around the same idea of the peer group or being linked to this. At least in studies, I’ve never seen study partner caregiver compensation. I highly encourage it because they have costs, and they have skin in the game 
+
+SUMNMARY:  "I would like the results to be sent to my PCP and not to me," he says. "I always take into account whether it will be detrimental as well for me" "Well the side effects, diarrhoea. I was wondering about that … that really stuck in my mind"
+****************************************************
+****************************************************
+Piece: 3  out of  4 pieces
+ caregiver compensation. I highly encourage it because they have costs, and they have skin in the game. I was OK with that even if he was just taking placebo. Lack of information always causes more worries. Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be seen as a form of torture. Doctors should be sensitive when delivering a diagnosis and prognosis to patients. The delivery of a diagnosis should not be rushed as the news is life changing. It is extremely unsettling to have a disease that people say is rare and incurable. Being told you have this and there is nothing you can do is frightening. I was told that I wasn’t suitable for transplant. I just had to sit down and take what was coming with no hope, and that was the worst of all. More thought should be given to the psychological impact of being diagnosed with this devastating disease. Most of what I learned was from attending a support group. I was told when the illness 
+
+SUMNMARY:  Doctors should be sensitive when delivering a diagnosis and prognosis to patients. It is extremely unsettling to have a disease that people say is rare and incurable. Being told you have this and there is nothing you can do is frightening.
+****************************************************
+****************************************************
+Piece: 4  out of  4 pieces
+ disease. Most of what I learned was from attending a support group. I was told when the illness was diagnosed that it was terminal. The missing link for patients is the lack of information among the GPs. They are not informed about the disease and, in turn, cannot properly advise patients. It was so hard to find information and any doctors or nurses we did talk to had never had a patient with IPF before. This really needs to change. There has to be more awareness and support for pulmonary fibrosis sufferers. "It seems like by the time people are diagnosed, they are too far gone," she says. "Even the Palliative Care Nurse didn’t know about the oxygen testing," she adds. 
+
+SUMNMARY:  "The missing link for patients is the lack of information among the GPs," she says. "It seems like by the time people are diagnosed, they are too far gone," she adds.
+****************************************************
+
+%%%%%%%%%%%%%%%%%%%%%
+
+Final summary: Doctors should be sensitive when delivering a diagnosis and prognosis to patients. Being told you have this and there is nothing you can do is frightening. "The missing link for patients is the lack of information among the GPs"

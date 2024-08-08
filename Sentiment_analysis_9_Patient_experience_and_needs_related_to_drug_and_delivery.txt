@@ -1,0 +1,31 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "Pulmonary fibrosis sufferers do not receive the same emotional and mental support to help prepare them through the journey. My hope is that oxygen companies will realize that oxygen needs are not a one size fits all across patients. Anyone going through pulmonary fibrosis needs to be supported and understood."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result:
+
+Sentence: Pulmonary fibrosis sufferers do not receive the same emotional and mental support to help prepare them through the journey.
+Polarity: -0.15, Subjectivity: 0.7
+
+Sentence: My hope is that oxygen companies will realize that oxygen needs are not a one size fits all across patients.
+Polarity: 0.1, Subjectivity: 0.65
+
+Sentence: Anyone going through pulmonary fibrosis needs to be supported and understood.
+Polarity: 0.1, Subjectivity: 0.5

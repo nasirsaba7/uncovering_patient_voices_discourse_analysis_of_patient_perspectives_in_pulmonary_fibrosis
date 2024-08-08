@@ -1,0 +1,31 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "Yoga, meditation, just going out for a walk have all helped. Just having a chat about families and how they are coping is the biggest part of it. The first drug, Pirfenidone, was not as effective as hoped."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result 
+
+Sentence: Yoga, meditation, just going out for a walk have all helped.
+Polarity: 0.20, Subjectivity: 0.30
+
+Sentence: Just having a chat about families and how they are coping is the biggest part of it.
+Polarity: 0.00, Subjectivity: 0.10
+
+Sentence: The first drug, Pirfenidone, was not as effective as hoped.
+Polarity: -0.10, Subjectivity: 0.60

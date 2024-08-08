@@ -1,0 +1,233 @@
+# Install the transformers package from Hugging Face:
+!pip install transformers
+!pip install torch
+!pip install tensorflow
+
+
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+
+# Load the model and tokenizer
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-large-cnn')
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-large-cnn')
+
+
+
+def summarize(text, maxSummarylength=500):
+    # Encode the text and summarize
+    inputs = tokenizer.encode("summarize: " +
+                              text,
+                              return_tensors="pt",
+                              max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs, max_length=maxSummarylength,
+                                 min_length=int(maxSummarylength/5),
+                                 length_penalty=10.0,
+                                 num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+
+
+def split_text_into_pieces(text,
+                           max_tokens=900,
+                           overlapPercent=10):
+    # Tokenize the text
+    tokens = tokenizer.tokenize(text)
+
+    # Calculate the overlap in tokens
+    overlap_tokens = int(max_tokens * overlapPercent / 100)
+
+    # Split the tokens into chunks of size
+    # max_tokens with overlap
+    pieces = [tokens[i:i + max_tokens]
+              for i in range(0, len(tokens),
+                             max_tokens - overlap_tokens)]
+
+    # Convert the token pieces back into text
+    text_pieces = [tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(piece),
+        skip_special_tokens=True) for piece in pieces]
+
+    return text_pieces
+
+
+def recursive_summarize(text, max_length=200, recursionLevel=0):
+    recursionLevel=recursionLevel+1
+    print("######### Recursion level: ",
+          recursionLevel,"\n\n######### ")
+    tokens = tokenizer.tokenize(text)
+    expectedCountOfChunks = len(tokens)/max_length
+    max_length=int(len(tokens)/expectedCountOfChunks)+2
+
+    # Break the text into pieces of max_length
+    pieces = split_text_into_pieces(text, max_tokens=max_length)
+
+    print("Number of pieces: ", len(pieces))
+    # Summarize each piece
+    summaries=[]
+    k=0
+    for k in range(0, len(pieces)):
+        piece=pieces[k]
+        print("****************************************************")
+        print("Piece:",(k+1)," out of ", len(pieces), "pieces")
+        print(piece, "\n")
+        summary =summarize(piece, maxSummarylength=max_length/3*2)
+        print("SUMNMARY: ", summary)
+        summaries.append(summary)
+        print("****************************************************")
+
+    concatenated_summary = ' '.join(summaries)
+
+    tokens = tokenizer.tokenize(concatenated_summary)
+
+    if len(tokens) > max_length:
+        # If the concatenated_summary is too long, repeat the process
+        print("############# GOING RECURSIVE ##############")
+        return recursive_summarize(concatenated_summary,
+                                   max_length=max_length,
+                                   recursionLevel=recursionLevel)
+    else:
+      # Concatenate the summaries and summarize again
+        final_summary=concatenated_summary
+        if len(pieces)>1:
+            final_summary = summarize(concatenated_summary,
+                                  maxSummarylength=max_length)
+        return final_summary
+
+
+
+# Example usage - Symptoms, comorbidities and physical/cognitive limitations
+text = '''Breathlessness is really difficult to describe. I can only liken it to feeling like you’re under water and want to breathe, but you can’t. I’ve had to learn techniques to help me manage my breathlessness.
+[Coughing] can cause me to vomit ... that impacts on myself and my family, keeping us awake at night particularly.
+Feelings of weakness and breathlessness overtake the enjoyment and ability to do much.
+I found myself persistently short of breath, fatigued, and dealing with a cough that wouldn’t subside.
+Coughing all the time is exhausting. I have little energy to do as I like, like spending time with my grandchildren.
+Patients also report weight loss as a symptom of PF:
+Weight loss seems to be part and parcel of IPF and mine has dropped from 90kg to about 67kg now, so you have to eat what you need to maintain health.
+That’s been progressive and weight loss ... and very low BMI and advanced nutritional support.
+If it’s really cold outside… it hurts me to go outside. It really hurts my lungs. Heat and humidity really, really take their toll. Allergy season is crazy.
+Patients’ also describe the progressive worsening of symptoms over time:
+I first noticed my breathing problems on a long-haul flight and struggled with my breathing while I was away. I thought it was a virus, but after some planned surgery the following month I developed a cough, struggled with my breathing and was admitted to the emergency department ... At times I’d feel fine, then going upstairs would leave me incredibly breathless. I developed a persistent cough and felt tired a lot of the time.
+As the disease progressed the coughing became more prevalent. It affected simple day acts; I’d cough when I laughed, after eating and in atmospheres where there are smells of chemicals, perfumes and aerosol deodorants, or spaces too hot or cold. The cough has increased and sounds different as the time passes. The sound of my cough is more grave and I now cough for longer periods.
+In May 2018 I had a flare-up of my symptoms while in Rome due to a respiratory infection. I was coughing all day and night, and couldn’t sleep. It took about 8 weeks and some pretty strong antibiotics to shift it completely.
+I have a constant dry cough. Very annoying. I am on supplemental oxygen 24 hours a day. I even have canisters that I use when I go outside of the house. But it’s a pain... I have some days where it’s not really that bad. I have some days where it is so severe that it’s – I cough to the point that I throw up because I’m coughing so much.
+My symptoms were heavy labored breathing when I did normal tasks such as climbing a flight of stairs and numbness and discoloration in my toes and fingers or Raynaud’s syndrome.
+I feel like the last couple of months I’ve been feeling more fatigue than I have in the past… Sometimes there [are] things I have to do, so I kind of work through it, but, you know, when I, when I don’t lie down and I still go to work and still do things, it drains me even more.
+Sometimes I get chest pain. It comes and goes, but it mostly feels like somebody really heavy, like I feel a 400-pound person, like I got an extra body sitting on me.
+I couldn’t walk along freely without oxygen. I had to have somebody nearby just in case, because I have these dizzy spells and sometimes I would pass out.
+It’s just one of those feelings where [it’s] kind of like you panic. You know, you want air in. Because you need air to breathe, and if you don’t have air you just feel all discombobulated. That’s kind of a weird feeling.
+I was diagnosed in 2007 with Pulmonary Fibrosis because of Lupus an autoimmune disease which caused the damage to my lungs.
+Patient with PF caused by antibiotics for urinary tract infection:
+I got the Fibrosis, which is life shortening, by repeatedly being prescribed an antibiotic for urinary tract infection. The antibiotic is Nitrofurantoin.
+Patients with PF caused by taking medications for their atrial fibrillation:
+I have pulmonary fibrosis caused by the treatment I had for AF. I had amiodarone, which is known to cause lung problems, and then dronedarone, which is safer. Unfortunately, I developed pulmonary fibrosis.
+I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped, but the damage was done. I also have other health problems with my heart and lungs.
+When I initially started, I was itching every day, and it would keep me up at night. It was just constantly itching.
+At the beginning, when I was first diagnosed, I used to be a really, severe Raynaud’s where just touching the fingers were painful.
+I also have severe osteoarthritis in both knees.
+Where now, I don’t have that sensitivity in the fingertips. It will turn purple; it will hurt but not as bad as in the beginning when I was diagnosed. I used to get sores-I used to get digital ulcers and scars and sores, and now I don’t. Fingers turn blue but I don’t get the sores.
+I have Raynaud’s, my fingers are curling up and I have lost my nails, pulmonary fibrosis along with the scleroderma, acid reflux, aspergillosis and an irregular heart.'''
+
+final_summary = recursive_summarize(text)
+print("\n%%%%%%%%%%%%%%%%%%%%%\n")
+print("Final summary:", final_summary)
+
+
+
+######### Recursion level:  1 
+
+######### 
+Number of pieces:  7
+****************************************************
+Piece: 1  out of  7 pieces
+Breathlessness is really difficult to describe. I can only liken it to feeling like you’re under water and want to breathe, but you can’t. I’ve had to learn techniques to help me manage my breathlessness.
+[Coughing] can cause me to vomit... that impacts on myself and my family, keeping us awake at night particularly.
+Feelings of weakness and breathlessness overtake the enjoyment and ability to do much.
+I found myself persistently short of breath, fatigued, and dealing with a cough that wouldn’t subside.
+Coughing all the time is exhausting. I have little energy to do as I like, like spending time with my grandchildren.
+Weight loss seems to be part and parcel of IPF and mine has dropped from 90kg to about 67kg now, so you have to eat what you need to maintain health.
+That’s been progressive and weight loss... and very low BMI and 
+
+SUMNMARY:  Coughing all the time is exhausting. I have little energy to do as I like, like spending time with my grandchildren. Weight loss seems to be part and parcel of IPF and mine has dropped from 90kg to about 67kg now.
+****************************************************
+****************************************************
+Piece: 2  out of  7 pieces
+ to maintain health.
+That’s been progressive and weight loss... and very low BMI and advanced nutritional support.
+If it’s really cold outside… it hurts me to go outside. It really hurts my lungs. Heat and humidity really, really take their toll. Allergy season is crazy.
+I first noticed my breathing problems on a long-haul flight and struggled with my breathing while I was away. I thought it was a virus, but after some planned surgery the following month I developed a cough, struggled with my breathing and was admitted to the emergency department... At times I’d feel fine, then going upstairs would leave me incredibly breathless. I developed a persistent cough and felt tired a lot of the time.
+As the disease progressed the coughing became more prevalent. It affected simple day acts; I’d cough when I laughed, after eating and in atmospheres where there are smells of chemicals, perfumes and aerosol deodorants, or spaces too 
+
+SUMNMARY:  I first noticed my breathing problems on a long-haul flight and struggled with my breathing while I was away. I developed a persistent cough and felt tired a lot of the time.
+****************************************************
+****************************************************
+Piece: 3  out of  7 pieces
+heres where there are smells of chemicals, perfumes and aerosol deodorants, or spaces too hot or cold. The cough has increased and sounds different as the time passes. The sound of my cough is more grave and I now cough for longer periods.
+In May 2018 I had a flare-up of my symptoms while in Rome due to a respiratory infection. I was coughing all day and night, and couldn’t sleep. It took about 8 weeks and some pretty strong antibiotics to shift it completely.
+I have a constant dry cough. Very annoying. I am on supplemental oxygen 24 hours a day. I even have canisters that I use when I go outside of the house. But it’s a pain... I have some days where it’s not really that bad. I have some days where it is so severe that it’s – I cough to the point that I throw up because I’m coughing so much.
+My symptoms were heavy lab 
+
+SUMNMARY:  In May 2018 I had a flare-up of my symptoms while in Rome due to a respiratory infection. It took about 8 weeks and some pretty strong antibiotics to shift it completely. The sound of my cough is more grave and I now cough for longer periods.
+****************************************************
+****************************************************
+Piece: 4  out of  7 pieces
+ point that I throw up because I’m coughing so much.
+My symptoms were heavy labored breathing when I did normal tasks such as climbing a flight of stairs and numbness and discoloration in my toes and fingers or Raynaud’s syndrome.
+I feel like the last couple of months I’ve been feeling more fatigue than I have in the past… Sometimes there [are] things I have to do, so I kind of work through it, but, you know, when I, when I don’t lie down and I still go to work and still do things, it drains me even more.
+Sometimes I get chest pain. It comes and goes, but it mostly feels like somebody really heavy, like I feel a 400-pound person, like I got an extra body sitting on me.
+I couldn’t walk along freely without oxygen. I had to have somebody nearby just in case, because I have these dizzy spells and sometimes 
+
+SUMNMARY:  I feel like the last couple of months I’ve been feeling more fatigue than I have in the past. I couldn’t walk along freely without oxygen. I had to have somebody nearby just in case, because I have these dizzy spells and sometimes I get chest pain.
+****************************************************
+****************************************************
+Piece: 5  out of  7 pieces
+. I had to have somebody nearby just in case, because I have these dizzy spells and sometimes I would pass out.
+It’s just one of those feelings where [it’s] kind of like you panic. You know, you want air in. Because you need air to breathe, and if you don’t have air you just feel all discombobulated. That’s kind of a weird feeling.
+I was diagnosed in 2007 with Pulmonary Fibrosis because of Lupus an autoimmune disease which caused the damage to my lungs.
+I got the Fibrosis, which is life shortening, by repeatedly being prescribed an antibiotic for urinary tract infection. The antibiotic is Nitrofurantoin.
+I have pulmonary fibrosis caused by the treatment I had for AF. I had amiodarone, which is known to cause lung problems, and then dronedarone, which is safer. Unfortunately, I developed pulmonary fibrosis.
+I too 
+
+SUMNMARY:  I was diagnosed in 2007 with Pulmonary Fibrosis because of Lupus an autoimmune disease which caused the damage to my lungs. I got the Fibrosis by repeatedly being prescribed an antibiotic for urinary tract infection. The antibiotic is Nitrofurantoin.
+****************************************************
+****************************************************
+Piece: 6  out of  7 pieces
+ dronedarone, which is safer. Unfortunately, I developed pulmonary fibrosis.
+I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped, but the damage was done. I also have other health problems with my heart and lungs.
+When I initially started, I was itching every day, and it would keep me up at night. It was just constantly itching.
+At the beginning, when I was first diagnosed, I used to be a really, severe Raynaud’s where just touching the fingers were painful.
+I also have severe osteoarthritis in both knees.
+Where now, I don’t have that sensitivity in the fingertips. It will turn purple; it will hurt but not as bad as in the beginning when I was diagnosed. I used to get sores-I used to get digital ulcers and scars and sores, and now I don 
+
+SUMNMARY:  I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped. I also have other health problems with my heart and lungs.
+****************************************************
+****************************************************
+Piece: 7  out of  7 pieces
+ sores-I used to get digital ulcers and scars and sores, and now I don’t. Fingers turn blue but I don’t get the sores.
+I have Raynaud’s, my fingers are curling up and I have lost my nails, pulmonary fibrosis along with the scleroderma, acid reflux, aspergillosis and an irregular heart. 
+
+SUMNMARY:  I have Raynaud’s, my fingers are curling up and I have lost my nails. I have pulmonary fibrosis along with the scleroderma, acid reflux, aspergillosis and an irregular heart. Fingers turn blue but I don’t get the sores.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  2 
+
+######### 
+Number of pieces:  2
+****************************************************
+Piece: 1  out of  2 pieces
+Coughing all the time is exhausting. I have little energy to do as I like, like spending time with my grandchildren. Weight loss seems to be part and parcel of IPF and mine has dropped from 90kg to about 67kg now. I first noticed my breathing problems on a long-haul flight and struggled with my breathing while I was away. I developed a persistent cough and felt tired a lot of the time. In May 2018 I had a flare-up of my symptoms while in Rome due to a respiratory infection. It took about 8 weeks and some pretty strong antibiotics to shift it completely. The sound of my cough is more grave and I now cough for longer periods. I feel like the last couple of months I’ve been feeling more fatigue than I have in the past. I couldn’t walk along freely without oxygen. I had to have somebody nearby just in case, because I have these dizzy spells and sometimes I get chest pain. I was diagnosed in 2007 with Pulmonary 
+
+SUMNMARY:  Pulmonary fibrosis (IPF) is a rare form of lung cancer. The disease affects the lungs and can cause breathing problems.
+****************************************************
+****************************************************
+Piece: 2  out of  2 pieces
+ have these dizzy spells and sometimes I get chest pain. I was diagnosed in 2007 with Pulmonary Fibrosis because of Lupus an autoimmune disease which caused the damage to my lungs. I got the Fibrosis by repeatedly being prescribed an antibiotic for urinary tract infection. The antibiotic is Nitrofurantoin. I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped. I also have other health problems with my heart and lungs. I have Raynaud’s, my fingers are curling up and I have lost my nails. I have pulmonary fibrosis along with the scleroderma, acid reflux, aspergillosis and an irregular heart. Fingers turn blue but I don’t get the sores. 
+
+SUMNMARY:  I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped. I have Raynaud’s, my fingers are curling up and I have lost my nails. Fingers turn blue but I don’t get the sores.
+****************************************************
+
+%%%%%%%%%%%%%%%%%%%%%
+
+Final summary: Idiopathic Pulmonary fibrosis (IPF) is a rare form of lung cancer. The disease affects the lungs and can cause breathing problems. I too have pulmonary fibrosis, diagnosed 4 years ago and caused by the drug I was taking for my atrial fibrillation, which was then stopped. I have Raynaud’s, my fingers are curling up and I have lost my nails.

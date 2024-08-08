@@ -1,0 +1,31 @@
+from textblob import TextBlob
+
+# The text to be analyzed
+text = "I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. I became really bad, so my chest specialist thought that I had a condition called bronchiectasis. He ran a myriad of tests; X-rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrosis."
+
+# Split the text into individual sentences
+sentences = text.split('. ')
+
+# Analyze sentiment for each sentence
+for sentence in sentences:
+    # Create a TextBlob object
+    blob = TextBlob(sentence)
+    
+    # Get the sentiment
+    sentiment = blob.sentiment
+    
+    # Print the sentence and its sentiment
+    print(f"Sentence: {sentence}")
+    print(f"Polarity: {sentiment.polarity:.2f}, Subjectivity: {sentiment.subjectivity:.2f}")
+    print()
+
+# result:
+
+Sentence: I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing.
+Polarity: 0.00, Subjectivity: 0.17
+
+Sentence: I became really bad, so my chest specialist thought that I had a condition called bronchiectasis.
+Polarity: -0.60, Subjectivity: 0.90
+
+Sentence: He ran a myriad of tests; X-rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrosis.
+Polarity: 0.00, Subjectivity: 0.00

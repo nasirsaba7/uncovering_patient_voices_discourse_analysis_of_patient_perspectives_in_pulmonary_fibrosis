@@ -1,0 +1,158 @@
+# Install the transformers package from Hugging Face:
+!pip install transformers
+!pip install torch
+!pip install tensorflow
+
+
+from transformers import BartForConditionalGeneration, BartTokenizer
+
+
+# Load the model and tokenizer
+model = BartForConditionalGeneration.from_pretrained(
+    'facebook/bart-large-cnn')
+tokenizer = BartTokenizer.from_pretrained(
+    'facebook/bart-large-cnn')
+
+
+
+def summarize(text, maxSummarylength=500):
+    # Encode the text and summarize
+    inputs = tokenizer.encode("summarize: " +
+                              text,
+                              return_tensors="pt",
+                              max_length=1024, truncation=True)
+    summary_ids = model.generate(inputs, max_length=maxSummarylength,
+                                 min_length=int(maxSummarylength/5),
+                                 length_penalty=10.0,
+                                 num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+
+
+def split_text_into_pieces(text,
+                           max_tokens=900,
+                           overlapPercent=10):
+    # Tokenize the text
+    tokens = tokenizer.tokenize(text)
+
+    # Calculate the overlap in tokens
+    overlap_tokens = int(max_tokens * overlapPercent / 100)
+
+    # Split the tokens into chunks of size
+    # max_tokens with overlap
+    pieces = [tokens[i:i + max_tokens]
+              for i in range(0, len(tokens),
+                             max_tokens - overlap_tokens)]
+
+    # Convert the token pieces back into text
+    text_pieces = [tokenizer.decode(
+        tokenizer.convert_tokens_to_ids(piece),
+        skip_special_tokens=True) for piece in pieces]
+
+    return text_pieces
+
+
+def recursive_summarize(text, max_length=200, recursionLevel=0):
+    recursionLevel=recursionLevel+1
+    print("######### Recursion level: ",
+          recursionLevel,"\n\n######### ")
+    tokens = tokenizer.tokenize(text)
+    expectedCountOfChunks = len(tokens)/max_length
+    max_length=int(len(tokens)/expectedCountOfChunks)+2
+
+    # Break the text into pieces of max_length
+    pieces = split_text_into_pieces(text, max_tokens=max_length)
+
+    print("Number of pieces: ", len(pieces))
+    # Summarize each piece
+    summaries=[]
+    k=0
+    for k in range(0, len(pieces)):
+        piece=pieces[k]
+        print("****************************************************")
+        print("Piece:",(k+1)," out of ", len(pieces), "pieces")
+        print(piece, "\n")
+        summary =summarize(piece, maxSummarylength=max_length/3*2)
+        print("SUMNMARY: ", summary)
+        summaries.append(summary)
+        print("****************************************************")
+
+    concatenated_summary = ' '.join(summaries)
+
+    tokens = tokenizer.tokenize(concatenated_summary)
+
+    if len(tokens) > max_length:
+        # If the concatenated_summary is too long, repeat the process
+        print("############# GOING RECURSIVE ##############")
+        return recursive_summarize(concatenated_summary,
+                                   max_length=max_length,
+                                   recursionLevel=recursionLevel)
+    else:
+      # Concatenate the summaries and summarize again
+        final_summary=concatenated_summary
+        if len(pieces)>1:
+            final_summary = summarize(concatenated_summary,
+                                  maxSummarylength=max_length)
+        return final_summary
+
+# Example usage - Diagnosis, referral and treatment pathways
+text = '''### Diagnosis, referral and treatment pathways ###
+I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. The colour was always clear so, since both my family doctor and I felt it was post nasal drip, I was prescribed nasal sprays. Before my diagnosis I’d been feeling some pain on my lower back that wouldn’t go away. I also noticed that I often needed to cough to clear my throat before having a conversation but I wouldn’t call it severe. It took around 2 weeks for her to be diagnosed after being taken to A&E at Hammersmith Hospital, London when she felt her breathing was not right. I remember being told at the time that her lungs were too weak for a biopsy to be done to confirm her diagnosis. Shortly after, she was given a prognosis of 5 years. This was a massive shock and we felt totally winded. It was unexplainable for us and felt surreal. I first mentioned my cough to my GP at my annual health check in 2013. The X-ray came back clear. But a year later, another X-ray showed something on my left lung. Lots of tests were inconclusive, but finally the results of a surgical lung biopsy indicated I had IPF. It took 2 years of back and forth to get to this stage! Then we moved and I saw a new GP. I was sent for a CT scan almost immediately, which showed that there was damage in my airways. I was told I had pulmonary fibrosis and referred to hospital. After a lung biopsy and further tests I was finally diagnosed, three years after my first visit to the GP. At the age of 4, I was diagnosed with juvenile rheumatoid arthritis… we counted ourselves lucky that it appeared I had the presentation where it attacks primarily the joints. We didn’t realize this would later take our journey down another path… My childhood had its aches and pains. After college was when things really started to change. I was diagnosed with double pneumonia shortly after graduating… Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011. My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis. I was diagnosed with double pneumonia shortly after graduating. After recovering, I still had a cough that I couldn’t shake no matter how many over-the-counter or prescription dedications I tried, and while I was far from an athlete before, the shortness of breath was slightly more noticeable now. At first I was told I had arthritis, then rheumatoid arthritis. Lupus was also diagnosed and I was given treatments for them all. Nothing helped and I only got worse ... he ran a myriad of tests; X- rays, blood and urine ... and told us that I had scleroderma with CREST and pulmonary fibrosis. My breathing complications became really bad so my chest specialist thought that I had a condition called bronchiectasis and did [an] MRI scan to detect it. This came back clear of bronchiectasis but he said we did find pulmonary fibrosis on the scan.'''
+
+final_summary = recursive_summarize(text)
+print("\n%%%%%%%%%%%%%%%%%%%%%\n")
+print("Final summary:", final_summary)
+
+
+
+######### Recursion level:  1 
+
+######### 
+Number of pieces:  4
+****************************************************
+Piece: 1  out of  4 pieces
+### Diagnosis, referral and treatment pathways ###
+I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. The colour was always clear so, since both my family doctor and I felt it was post nasal drip, I was prescribed nasal sprays. Before my diagnosis I’d been feeling some pain on my lower back that wouldn’t go away. I also noticed that I often needed to cough to clear my throat before having a conversation but I wouldn’t call it severe. It took around 2 weeks for her to be diagnosed after being taken to A&E at Hammersmith Hospital, London when she felt her breathing was not right. I remember being told at the time that her lungs were too weak for a biopsy to be done to confirm her diagnosis. Shortly after, she was given a prognosis of 5 years. This was a massive shock and we felt totally winded. It was unexplainable for us and felt surreal. I first 
+
+SUMNMARY:  I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. The colour was always clear so, since both my family doctor and I felt it was post nasal drip, I was prescribed nasal sprays. Before my diagnosis I’d been feeling some pain on my lower back that wouldn’t go away. I also noticed that I often needed to cough to clear my throat before having a conversation.
+****************************************************
+****************************************************
+Piece: 2  out of  4 pieces
+ and we felt totally winded. It was unexplainable for us and felt surreal. I first mentioned my cough to my GP at my annual health check in 2013. The X-ray came back clear. But a year later, another X-ray showed something on my left lung. Lots of tests were inconclusive, but finally the results of a surgical lung biopsy indicated I had IPF. It took 2 years of back and forth to get to this stage! Then we moved and I saw a new GP. I was sent for a CT scan almost immediately, which showed that there was damage in my airways. I was told I had pulmonary fibrosis and referred to hospital. After a lung biopsy and further tests I was finally diagnosed, three years after my first visit to the GP. At the age of 4, I was diagnosed with juvenile rheumatoid arthritis… we counted ourselves lucky that it appeared I had the presentation where it attacks primarily the joints. We didn’t 
+
+SUMNMARY:  I first mentioned my cough to my GP at my annual health check in 2013. Lots of tests were inconclusive, but finally the results of a surgical lung biopsy indicated I had IPF. It took 2 years of back and forth to get to this stage!
+****************************************************
+****************************************************
+Piece: 3  out of  4 pieces
+ lucky that it appeared I had the presentation where it attacks primarily the joints. We didn’t realize this would later take our journey down another path… My childhood had its aches and pains. After college was when things really started to change. I was diagnosed with double pneumonia shortly after graduating… Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011. My family and I later found out that rheumatoid arthritis caused my pulmonary fibrosis. I was diagnosed with double pneumonia shortly after graduating. After recovering, I still had a cough that I couldn’t shake no matter how many over-the-counter or prescription dedications I tried, and while I was far from an athlete before, the shortness of breath was slightly more noticeable now. At first I was told I had arthritis, then rheumatoid arthritis. Lupus was also diagnosed and I was given treatments for them all. Nothing helped and I only got worse... he ran 
+
+SUMNMARY:  After college was when things really started to change. He was diagnosed with double pneumonia shortly after graduating. Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011.
+****************************************************
+****************************************************
+Piece: 4  out of  4 pieces
+ diagnosed and I was given treatments for them all. Nothing helped and I only got worse... he ran a myriad of tests; X- rays, blood and urine... and told us that I had scleroderma with CREST and pulmonary fibrosis. My breathing complications became really bad so my chest specialist thought that I had a condition called bronchiectasis and did [an] MRI scan to detect it. This came back clear of bronchiectasis but he said we did find pulmonary fibrosis on the scan. 
+
+SUMNMARY:  My breathing complications became really bad so my chest specialist thought that I had a condition called bronchiectasis and did [an] MRI scan to detect it. This came back clear of bronchiECTasis but he said we did find pulmonary fibrosis on the scan. He ran a myriad of tests; X- rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrotic.
+****************************************************
+############# GOING RECURSIVE ##############
+######### Recursion level:  2 
+
+######### 
+Number of pieces:  2
+****************************************************
+Piece: 1  out of  2 pieces
+I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. The colour was always clear so, since both my family doctor and I felt it was post nasal drip, I was prescribed nasal sprays. Before my diagnosis I’d been feeling some pain on my lower back that wouldn’t go away. I also noticed that I often needed to cough to clear my throat before having a conversation. I first mentioned my cough to my GP at my annual health check in 2013. Lots of tests were inconclusive, but finally the results of a surgical lung biopsy indicated I had IPF. It took 2 years of back and forth to get to this stage! After college was when things really started to change. He was diagnosed with double pneumonia shortly after graduating. Blood tests, CT scans and a lung biopsy eventually confirmed a diagnosis of pulmonary fibrosis in 2011. My breathing complications became really bad so my chest specialist thought that I had a condition called bronchiectasis and did 
+
+SUMNMARY:  I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing. Lots of tests were inconclusive, but finally the results of a surgical lung biopsy indicated I had IPF. It took 2 years of back and forth to get to this stage!
+****************************************************
+****************************************************
+Piece: 2  out of  2 pieces
+ became really bad so my chest specialist thought that I had a condition called bronchiectasis and did [an] MRI scan to detect it. This came back clear of bronchiECTasis but he said we did find pulmonary fibrosis on the scan. He ran a myriad of tests; X- rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrotic. 
+
+SUMNMARY:  "I became really bad so my chest specialist thought that I had a condition called bronchiectasis and did [an] MRI scan to detect it. This came back clear of bronchiECTasis but he said we did find pulmonary fibrosis on the scan" "He ran a myriad of tests; X- rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrotic"
+****************************************************
+
+%%%%%%%%%%%%%%%%%%%%%
+
+Final summary: "I started experiencing a buildup of mucus in my throat causing a constant clearing and coughing" "I became really bad so my chest specialist thought that I had a condition called bronchiectasis" "He ran a myriad of tests; X- rays, blood and urine... and told us that I have scleroderma with CREST and pulmonary fibrotic"
